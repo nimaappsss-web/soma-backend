@@ -64,7 +64,7 @@ export const verifyEmailOtp = async (req: AuthRequest, res: Response) => {
       where: { id: user.id },
       data: {
         passwordHash,
-        phoneVerified: true,
+        emailVerified: true,
       },
     });
 
@@ -118,7 +118,7 @@ export const verifyEmailOtp = async (req: AuthRequest, res: Response) => {
         phone: updatedUser.phone,
         role: updatedUser.role,
         image: updatedUser.image,
-        phoneVerified: updatedUser.phoneVerified,
+        emailVerified: updatedUser.emailVerified,
         schoolId: updatedUser.schoolId,
         schoolName: user.school?.name || null,
       },

@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node src/index.ts",
-    "build": "tsc || true",
+    "build": "tsc",
     "start": "prisma migrate deploy && node dist/index.js",
     "test": "jest",
     "postinstall": "prisma generate"
