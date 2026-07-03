@@ -8,7 +8,7 @@ const getTransporter = () => {
     const user = process.env.GMAIL_USER;
     const pass = process.env.GMAIL_APP_PASSWORD;
     if (!user || !pass) {
-      console.error("GMAIL_USER or GMAIL_APP_PASSWORD not set");
+      console.error("EMAIL CREDENTIALS MISSING — GMAIL_USER or GMAIL_APP_PASSWORD not set in env");
     }
     _transporter = nodemailer.createTransport({
       service: "gmail",

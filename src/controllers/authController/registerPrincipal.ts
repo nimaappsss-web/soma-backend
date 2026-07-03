@@ -75,7 +75,10 @@ export const registerPrincipal = async (req: AuthRequest, res: Response) => {
           expiresAt: new Date(Date.now() + 10 * 60 * 1000),
         },
       });
-      sendEmailOtp(principal.email, principal.name, otp).catch((err) => console.error("Send email OTP error:", err));
+      sendEmailOtp(principal.email, principal.name, otp).catch((err) => {
+        console.error("Register principal send email OTP error:", err?.message || err);
+        if (err?.response) console.error("Error response:", err.response);
+      });
       emailOtpSent = true;
     }
 
