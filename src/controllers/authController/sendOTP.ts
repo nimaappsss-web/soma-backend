@@ -41,10 +41,14 @@ export const sendOTP = async (req: AuthRequest, res: Response) => {
       });
 
       const user = await prisma.user.findFirst({ where: { email } });
-      sendEmailOtp(email, user?.name || "User", code).catch((err) => {
+      try {
+        await sendEmailOtp(email, user?.name || "User", code);
+        console.log(`OTP email sent successfully to ${email}`);
+      } catch (err: any) {
         console.error("Send email OTP error:", err?.message || err);
         if (err?.response) console.error("Error response:", err.response);
-      });
+        return res.status(500).json({ error: "Failed to send email", detail: err?.message || "Unknown error" });
+      }
     } else {
       return res.status(400).json({ error: "Phone or email is required" });
     }
