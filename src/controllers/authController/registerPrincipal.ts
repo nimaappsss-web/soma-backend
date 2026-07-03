@@ -7,6 +7,8 @@ import { hashPassword, validatePassword } from "../../utils/password";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { AuthRequest, RegisterPrincipalDto } from "../../types";
 import { prisma } from "../../utils/prisma";
+import { sendEmailOtp } from "../../utils/email";
+import { generateOTP } from "../../utils/tokens";
 
 export const registerPrincipal = async (req: AuthRequest, res: Response) => {
   try {
@@ -63,6 +65,20 @@ export const registerPrincipal = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    let emailOtpSent = false;
+    if (principal.email) {
+      const otp = generateOTP();
+      await prisma.oTP.create({
+        data: {
+          email: principal.email,
+          code: otp,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
+      sendEmailOtp(principal.email, principal.name, otp).catch(() => {});
+      emailOtpSent = true;
+    }
+
     const tokenPayload = {
       userId: principal.id,
       schoolId: "",
@@ -95,6 +111,7 @@ export const registerPrincipal = async (req: AuthRequest, res: Response) => {
         role: principal.role,
         image: principal.image,
       },
+      emailOtpSent,
       accessToken,
       refreshToken,
     });

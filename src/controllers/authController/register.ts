@@ -7,6 +7,8 @@ import { hashPassword, validatePassword } from "../../utils/password";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { AuthRequest, RegisterSchoolDto } from "../../types";
 import { prisma } from "../../utils/prisma";
+import { sendEmailOtp } from "../../utils/email";
+import { generateOTP } from "../../utils/tokens";
 
 export const register = async (req: AuthRequest, res: Response) => {
   try {
@@ -80,6 +82,20 @@ export const register = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    let emailOtpSent = false;
+    if (principal.email) {
+      const otp = generateOTP();
+      await prisma.oTP.create({
+        data: {
+          email: principal.email,
+          code: otp,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
+      sendEmailOtp(principal.email, principal.name, otp).catch(() => {});
+      emailOtpSent = true;
+    }
+
     const accessToken = generateAccessToken({
       userId: principal.id,
       schoolId: school.id,
@@ -121,6 +137,7 @@ export const register = async (req: AuthRequest, res: Response) => {
         role: principal.role,
         image: principal.image,
       },
+      emailOtpSent,
       accessToken,
       refreshToken,
     });

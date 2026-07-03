@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { welcomeHtml, teacherInviteHtml } from "./emailTemplates";
+import { welcomeHtml, teacherInviteHtml, emailOtpHtml } from "./emailTemplates";
 
 let _resend: Resend | null = null;
 
@@ -33,5 +33,18 @@ export const sendTeacherInviteEmail = async (
     to,
     subject: `You're Invited to Join ${schoolName} on Nima`,
     html: teacherInviteHtml(teacherName, schoolName, otp),
+  });
+};
+
+export const sendEmailOtp = async (
+  to: string,
+  name: string,
+  otp: string,
+) => {
+  return getResend().emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: "Verify Your Email — Nima",
+    html: emailOtpHtml(name, otp),
   });
 };
