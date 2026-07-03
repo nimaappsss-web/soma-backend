@@ -1,4 +1,6 @@
 import "dotenv/config";
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
 import { errorHandler } from "./middleware/errorHandler";
 import { swaggerSpec } from "./config/swagger";
 import uploadRoutes from "./routes/upload";
@@ -37,4 +39,8 @@ app.listen(port, () => {
   console.log(
     `API Documentation available at http://localhost:${port}/api-docs`,
   );
+
+  if (!process.env.SENDGRID_API_KEY) {
+    console.error("WARNING: SENDGRID_API_KEY not set — email sending will fail");
+  }
 });
