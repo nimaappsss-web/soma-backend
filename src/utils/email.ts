@@ -1,20 +1,27 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import { welcomeHtml, teacherInviteHtml, emailOtpHtml } from "./emailTemplates";
 
-let _resend: Resend | null = null;
+let _transporter: nodemailer.Transporter | null = null;
 
-const getResend = () => {
-  if (!_resend) {
-    _resend = new Resend(process.env.RESEND_API_KEY || "");
+const getTransporter = () => {
+  if (!_transporter) {
+    const user = process.env.GMAIL_USER;
+    const pass = process.env.GMAIL_APP_PASSWORD;
+    if (!user || !pass) {
+      console.error("GMAIL_USER or GMAIL_APP_PASSWORD not set");
+    }
+    _transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user, pass },
+    });
   }
-  return _resend;
+  return _transporter;
 };
 
-const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL || "Nima <onboarding@resend.dev>";
+const FROM_EMAIL = process.env.GMAIL_USER || "noreply@gmail.com";
 
 export const sendWelcomeEmail = async (to: string, name: string) => {
-  return getResend().emails.send({
+  return getTransporter().sendMail({
     from: FROM_EMAIL,
     to,
     subject: "Welcome to Nima — Verify Your Account",
@@ -28,7 +35,7 @@ export const sendTeacherInviteEmail = async (
   schoolName: string,
   otp: string,
 ) => {
-  return getResend().emails.send({
+  return getTransporter().sendMail({
     from: FROM_EMAIL,
     to,
     subject: `You're Invited to Join ${schoolName} on Nima`,
@@ -41,7 +48,7 @@ export const sendEmailOtp = async (
   name: string,
   otp: string,
 ) => {
-  return getResend().emails.send({
+  return getTransporter().sendMail({
     from: FROM_EMAIL,
     to,
     subject: "Verify Your Email — Nima",
