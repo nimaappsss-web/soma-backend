@@ -33,6 +33,10 @@ export const login = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: "Account is inactive" });
     }
 
+    if (user.email && !user.emailVerified) {
+      return res.status(403).json({ error: "Email not verified. Please verify your email first." });
+    }
+
     if (password && user.passwordHash) {
       const isValidPassword = await comparePassword(
         password,

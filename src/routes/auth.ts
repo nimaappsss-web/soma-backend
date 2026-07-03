@@ -11,6 +11,7 @@ import {
   acceptInvite,
   sendOTP,
   verifyOTP,
+  verifyEmailOtp,
   forgotPassword,
   resetPassword,
 } from "../controllers/authController";
@@ -407,5 +408,35 @@ router.post("/send-otp", sendOTP);
  *         description: Login successful
  */
 router.post("/verify-otp", verifyOTP);
+
+/**
+ * @swagger
+ * /api/auth/verify-email-otp:
+ *   post:
+ *     summary: Verify email OTP
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, code, password, deviceId, deviceName]
+ *             properties:
+ *               email:
+ *                 type: string
+ *               code:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               deviceId:
+ *                 type: string
+ *               deviceName:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Email verified and account activated
+ */
+router.post("/verify-email-otp", verifyEmailOtp);
 
 export default router;
