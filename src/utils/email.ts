@@ -1,3 +1,6 @@
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
+
 import nodemailer from "nodemailer";
 import { welcomeHtml, teacherInviteHtml, emailOtpHtml } from "./emailTemplates";
 
@@ -8,10 +11,12 @@ const getTransporter = () => {
     const user = process.env.GMAIL_USER;
     const pass = process.env.GMAIL_APP_PASSWORD;
     if (!user || !pass) {
-      console.error("EMAIL CREDENTIALS MISSING — GMAIL_USER or GMAIL_APP_PASSWORD not set in env");
+      console.error("GMAIL_USER or GMAIL_APP_PASSWORD not set");
     }
     _transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
       auth: { user, pass },
     });
   }
