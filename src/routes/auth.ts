@@ -413,7 +413,7 @@ router.post("/verify-otp", verifyOTP);
  * @swagger
  * /api/auth/verify-email-otp:
  *   post:
- *     summary: Verify email OTP
+ *     summary: Verify email OTP and login
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -421,13 +421,11 @@ router.post("/verify-otp", verifyOTP);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email, code, password, deviceId, deviceName]
+ *             required: [email, code]
  *             properties:
  *               email:
  *                 type: string
  *               code:
- *                 type: string
- *               password:
  *                 type: string
  *               deviceId:
  *                 type: string
@@ -435,7 +433,7 @@ router.post("/verify-otp", verifyOTP);
  *                 type: string
  *     responses:
  *       200:
- *         description: Email verified and account activated
+ *         description: Email verified, returns user + tokens
  */
 router.post("/verify-email-otp", verifyEmailOtp);
 

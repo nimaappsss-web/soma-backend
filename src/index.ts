@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { errorHandler } from "./middleware/errorHandler";
 import { swaggerSpec } from "./config/swagger";
 import uploadRoutes from "./routes/upload";
@@ -5,10 +6,7 @@ import authRoutes from "./routes/auth";
 
 import express, { Express, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
-import dotenv from "dotenv";
 import cors from "cors";
-
-dotenv.config();
 
 const app: Express = express();
 const port = process.env.PORT || 3000;

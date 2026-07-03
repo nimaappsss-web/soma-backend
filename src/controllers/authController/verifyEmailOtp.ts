@@ -1,15 +1,14 @@
-import { Response } from "express";
 import crypto from "crypto";
+import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { validateEmail } from "../../utils/validation";
-import { hashPassword, validatePassword } from "../../utils/password";
-import { generateAccessToken } from "../../utils/jwt";
+import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
 
 export const verifyEmailOtp = async (req: AuthRequest, res: Response) => {
   try {
-    const { email, code, password, deviceId, deviceName } = req.body;
+    const { email, code } = req.body;
 
     if (!email || !validateEmail(email)) {
       return res.status(400).json({ error: "Valid email is required" });
@@ -17,11 +16,6 @@ export const verifyEmailOtp = async (req: AuthRequest, res: Response) => {
 
     if (!code) {
       return res.status(400).json({ error: "OTP code is required" });
-    }
-
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.valid) {
-      return res.status(400).json({ error: passwordValidation.message });
     }
 
     const otpRecord = await prisma.oTP.findFirst({
@@ -58,12 +52,9 @@ export const verifyEmailOtp = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: "Account is inactive" });
     }
 
-    const passwordHash = await hashPassword(password);
-
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        passwordHash,
         emailVerified: true,
       },
     });
@@ -75,42 +66,27 @@ export const verifyEmailOtp = async (req: AuthRequest, res: Response) => {
       email: updatedUser.email || undefined,
     });
 
-    const did = deviceId || crypto.randomUUID();
-    const dName = deviceName || "Web Browser";
-
-    const existingSession = await prisma.session.findFirst({
-      where: { userId: updatedUser.id, deviceId: did },
+    const refreshToken = generateRefreshToken({
+      userId: updatedUser.id,
+      schoolId: updatedUser.schoolId || undefined,
+      role: updatedUser.role,
+      email: updatedUser.email || undefined,
     });
 
-    if (existingSession) {
-      await prisma.session.update({
-        where: { id: existingSession.id },
-        data: {
-          refreshToken: accessToken,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          lastActivityAt: new Date(),
-        },
-      });
-    } else {
-      await prisma.session.create({
-        data: {
-          userId: updatedUser.id,
-          deviceId: did,
-          deviceType: dName.toLowerCase().includes("mobile")
-            ? "phone"
-            : dName.toLowerCase().includes("tablet")
-              ? "tablet"
-              : "web",
-          deviceName: dName,
-          refreshToken: accessToken,
-          isPrimary: false,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        },
-      });
-    }
+    await prisma.session.create({
+      data: {
+        userId: updatedUser.id,
+        deviceId: req.body.deviceId || crypto.randomUUID(),
+        deviceType: "web",
+        deviceName: req.body.deviceName || "Web Browser",
+        refreshToken,
+        isPrimary: true,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
 
     res.json({
-      message: "Email verified and account activated successfully",
+      message: "Email verified successfully",
       user: {
         id: updatedUser.id,
         name: updatedUser.name,
@@ -118,11 +94,12 @@ export const verifyEmailOtp = async (req: AuthRequest, res: Response) => {
         phone: updatedUser.phone,
         role: updatedUser.role,
         image: updatedUser.image,
-        emailVerified: updatedUser.emailVerified,
+        emailVerified: true,
         schoolId: updatedUser.schoolId,
         schoolName: user.school?.name || null,
       },
       accessToken,
+      refreshToken,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Verify Email OTP");
