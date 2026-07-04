@@ -14,6 +14,9 @@ const getTransporter = () => {
       port: 587,
       secure: false,
       auth: { user: "apikey", pass: apiKey },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
   }
   return _transporter;

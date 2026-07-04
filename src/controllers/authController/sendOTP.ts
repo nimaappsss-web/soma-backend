@@ -2,8 +2,8 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { validatePhoneNumber, validateEmail } from "../../utils/validation";
-import { generateOTP } from "../../utils/tokens";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { generateOTP } from "../../utils/tokens";
 import { sendEmailOtp } from "../../utils/email";
 
 export const sendOTP = async (req: AuthRequest, res: Response) => {
