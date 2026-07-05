@@ -1,36 +1,41 @@
-import nodemailer from "nodemailer";
 import { welcomeHtml, teacherInviteHtml, emailOtpHtml } from "./emailTemplates";
-
-let _transporter: nodemailer.Transporter | null = null;
-
-const getTransporter = () => {
-  if (!_transporter) {
-    const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
-      console.error("SENDGRID_API_KEY not set");
-    }
-    _transporter = nodemailer.createTransport({
-      host: "smtp.sendgrid.net",
-      port: 587,
-      secure: false,
-      auth: { user: "apikey", pass: apiKey },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-    });
-  }
-  return _transporter;
-};
 
 const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@gmail.com";
 
-export const sendWelcomeEmail = async (to: string, name: string) => {
-  return getTransporter().sendMail({
-    from: FROM_EMAIL,
-    to,
-    subject: "Welcome to Nima — Verify Your Account",
-    html: welcomeHtml(name),
+const sendViaSendGrid = async (
+  to: string,
+  subject: string,
+  html: string,
+) => {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) throw new Error("SENDGRID_API_KEY not set");
+
+  const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: { email: FROM_EMAIL },
+      subject,
+      content: [{ type: "text/html", value: html }],
+    }),
   });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`SendGrid API error (${res.status}): ${body}`);
+  }
+};
+
+export const sendWelcomeEmail = async (to: string, name: string) => {
+  await sendViaSendGrid(
+    to,
+    "Welcome to Nima — Verify Your Account",
+    welcomeHtml(name),
+  );
 };
 
 export const sendTeacherInviteEmail = async (
@@ -39,12 +44,11 @@ export const sendTeacherInviteEmail = async (
   schoolName: string,
   otp: string,
 ) => {
-  return getTransporter().sendMail({
-    from: FROM_EMAIL,
+  await sendViaSendGrid(
     to,
-    subject: `You're Invited to Join ${schoolName} on Nima`,
-    html: teacherInviteHtml(teacherName, schoolName, otp),
-  });
+    `You're Invited to Join ${schoolName} on Nima`,
+    teacherInviteHtml(teacherName, schoolName, otp),
+  );
 };
 
 export const sendEmailOtp = async (
@@ -52,10 +56,9 @@ export const sendEmailOtp = async (
   name: string,
   otp: string,
 ) => {
-  return getTransporter().sendMail({
-    from: FROM_EMAIL,
+  await sendViaSendGrid(
     to,
-    subject: "Verify Your Email — Nima",
-    html: emailOtpHtml(name, otp),
-  });
+    "Verify Your Email — Nima",
+    emailOtpHtml(name, otp),
+  );
 };

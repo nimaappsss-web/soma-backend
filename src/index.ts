@@ -1,6 +1,4 @@
 import "dotenv/config";
-import dns from "dns";
-dns.setDefaultResultOrder("ipv4first");
 import { errorHandler } from "./middleware/errorHandler";
 import { swaggerSpec } from "./config/swagger";
 import uploadRoutes from "./routes/upload";
