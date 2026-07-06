@@ -4,11 +4,11 @@ import crypto from "crypto";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { validateEmail, validatePhoneNumber } from "../../utils/validation";
 import { hashPassword, validatePassword } from "../../utils/password";
-import { createErrorResponse } from "../../utils/errorHandler";
 import { AuthRequest, RegisterPrincipalDto } from "../../types";
-import { prisma } from "../../utils/prisma";
+import { createErrorResponse } from "../../utils/errorHandler";
 import { sendEmailOtp } from "../../utils/email";
 import { generateOTP } from "../../utils/tokens";
+import { prisma } from "../../utils/prisma";
 
 export const registerPrincipal = async (req: AuthRequest, res: Response) => {
   try {

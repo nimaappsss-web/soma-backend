@@ -12,3 +12,4 @@ export { verifyEmailOtp } from "./verifyEmailOtp";
 export { acceptInvite } from "./acceptInvite";
 export { forgotPassword } from "./forgotPassword";
 export { resetPassword } from "./resetPassword";
+export { completeRegistration } from "./completeRegistration";

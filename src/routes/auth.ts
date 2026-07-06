@@ -14,6 +14,7 @@ import {
   verifyEmailOtp,
   forgotPassword,
   resetPassword,
+  completeRegistration,
 } from "../controllers/authController";
 import { authenticateToken } from "../middleware/auth";
 
@@ -436,5 +437,48 @@ router.post("/verify-otp", verifyOTP);
  *         description: Email verified, returns user + tokens
  */
 router.post("/verify-email-otp", verifyEmailOtp);
+
+/**
+ * @swagger
+ * /api/auth/complete-registration:
+ *   post:
+ *     summary: Complete teacher registration (set name, password, and assignments)
+ *     tags: [Teacher Management]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, password]
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Mr. Adeyemi
+ *               password:
+ *                 type: string
+ *                 example: SecurePass123
+ *               assignments:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     subjectId:
+ *                       type: string
+ *                       nullable: true
+ *                       description: null for form teacher
+ *                     classIds:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *     responses:
+ *       200:
+ *         description: Registration completed
+ *       400:
+ *         description: Validation error
+ */
+router.post("/complete-registration", authenticateToken, completeRegistration);
 
 export default router;

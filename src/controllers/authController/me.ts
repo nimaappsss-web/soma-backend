@@ -11,7 +11,12 @@ export const me = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      include: { school: true },
+      include: {
+        school: true,
+        assignments: {
+          include: { classes: true, subject: true },
+        },
+      },
     });
 
     if (!user) {
@@ -25,6 +30,7 @@ export const me = async (req: AuthRequest, res: Response) => {
       phone: user.phone,
       role: user.role,
       active: user.active,
+      needsRegistration: !user.passwordHash,
       schoolId: user.schoolId,
       school: user.school ? {
         id: user.school.id,
@@ -34,6 +40,14 @@ export const me = async (req: AuthRequest, res: Response) => {
         lga: user.school.lga,
         schoolType: user.school.schoolType,
       } : null,
+      assignments: user.assignments.map((a) => ({
+        id: a.id,
+        type: a.type,
+        subject: a.subject ? { id: a.subject.id, name: a.subject.name } : null,
+        classes: a.classes.map((c) => ({
+          classId: c.classId,
+        })),
+      })),
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Get User Profile");

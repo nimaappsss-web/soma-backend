@@ -53,17 +53,29 @@ TeacherAssignment {
   teacherId: string
   schoolId: string
   type: 'form' | 'subject'
+  subjectId?: string        // only for subject assignments
+  // Classes are linked via TeacherAssignmentClass (many-to-many)
+}
+
+TeacherAssignmentClass {
+  id: string
+  assignmentId: string
   classId: string
-  subjectId?: string  // only for subject assignments
 }
 ```
 
 **Access Example:**
 ```
-Mr Adeyemi has 3 assignment records:
-1. { type: 'form', classId: 'jss1a' }
-2. { type: 'subject', classId: 'jss1a', subjectId: 'mathematics' }
-3. { type: 'subject', classId: 'jss1b', subjectId: 'mathematics' }
+Mr Adeyemi has 2 assignment records:
+1. {
+     type: 'form',
+     classes: ['jss1a']           // form teacher = one class
+   }
+2. {
+     type: 'subject',
+     subjectId: 'mathematics',
+     classes: ['jss1a', 'jss1b']  // one subject, multiple classes
+   }
 
 He can:
 ✅ Take attendance in JSS 1A (form teacher)

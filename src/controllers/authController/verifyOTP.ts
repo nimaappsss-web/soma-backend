@@ -32,15 +32,43 @@ export const verifyOTP = async (req: AuthRequest, res: Response) => {
       data: { verified: true },
     });
 
-    const user = await prisma.user.findFirst({
+    let user = await prisma.user.findFirst({
       where: { phone },
       include: { school: true },
     });
 
     if (!user) {
-      return res
-        .status(404)
-        .json({ error: "No account found with this phone number" });
+      const pendingInvite = await prisma.inviteToken.findFirst({
+        where: {
+          invitedPhone: phone,
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!pendingInvite) {
+        return res
+          .status(404)
+          .json({ error: "No account found with this phone number" });
+      }
+
+      user = await prisma.user.create({
+        data: {
+          name: phone,
+          phone,
+          role: pendingInvite.role,
+          schoolId: pendingInvite.schoolId,
+          passwordHash: null,
+          active: true,
+        },
+        include: { school: true },
+      });
+
+      await prisma.inviteToken.update({
+        where: { id: pendingInvite.id },
+        data: { usedAt: new Date(), usedBy: user.id },
+      });
     }
 
     if (!user.active) {
@@ -92,8 +120,12 @@ export const verifyOTP = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const needsRegistration = !user.passwordHash;
+
     res.json({
-      message: "Login successful",
+      message: needsRegistration
+        ? "Phone verified. Please complete your registration."
+        : "Login successful",
       user: {
         id: user.id,
         name: user.name,
@@ -102,6 +134,7 @@ export const verifyOTP = async (req: AuthRequest, res: Response) => {
         role: user.role,
         schoolId: user.schoolId,
         schoolName: user.school?.name || null,
+        needsRegistration,
       },
       accessToken,
       refreshToken,

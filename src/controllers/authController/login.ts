@@ -22,7 +22,12 @@ export const login = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findFirst({
       where: isEmail ? { email: identifier } : { phone: identifier },
-      include: { school: true },
+      include: {
+        school: true,
+        assignments: {
+          include: { classes: true, subject: true },
+        },
+      },
     });
 
     if (!user) {
@@ -107,9 +112,19 @@ export const login = async (req: AuthRequest, res: Response) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
         schoolId: user.schoolId,
         schoolName: user.school?.name || null,
+        needsRegistration: !user.passwordHash,
+        assignments: user.assignments.map((a) => ({
+          id: a.id,
+          type: a.type,
+          subject: a.subject ? { id: a.subject.id, name: a.subject.name } : null,
+          classes: a.classes.map((c) => ({
+            classId: c.classId,
+          })),
+        })),
       },
       accessToken,
       refreshToken,

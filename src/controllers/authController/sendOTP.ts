@@ -1,10 +1,11 @@
 import { Response } from "express";
-import { AuthRequest } from "../../types";
-import { prisma } from "../../utils/prisma";
+
 import { validatePhoneNumber, validateEmail } from "../../utils/validation";
 import { createErrorResponse } from "../../utils/errorHandler";
-import { generateOTP } from "../../utils/tokens";
 import { sendEmailOtp } from "../../utils/email";
+import { generateOTP } from "../../utils/tokens";
+import { prisma } from "../../utils/prisma";
+import { AuthRequest } from "../../types";
 
 export const sendOTP = async (req: AuthRequest, res: Response) => {
   try {
@@ -47,7 +48,10 @@ export const sendOTP = async (req: AuthRequest, res: Response) => {
       } catch (err: any) {
         console.error("Send email OTP error:", err?.message || err);
         if (err?.response) console.error("Error response:", err.response);
-        return res.status(500).json({ error: "Failed to send email", detail: err?.message || "Unknown error" });
+        return res.status(500).json({
+          error: "Failed to send email",
+          detail: err?.message || "Unknown error",
+        });
       }
     } else {
       return res.status(400).json({ error: "Phone or email is required" });

@@ -1,12 +1,9 @@
 import { Response } from "express";
-import { AuthRequest, InviteTeacherDto } from "../../types";
+import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
-import { validatePhoneNumber } from "../../utils/validation";
-import { generateInviteToken } from "../../utils/tokens";
-import {
-  formatWhatsAppMessage,
-  generateWhatsAppLink,
-} from "../../utils/whatsapp";
+import { validateEmail } from "../../utils/validation";
+import { generateSecureToken } from "../../utils/tokens";
+import { sendTeacherInviteEmail } from "../../utils/email";
 import { createErrorResponse } from "../../utils/errorHandler";
 
 export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
@@ -25,7 +22,7 @@ export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "No school registered yet" });
     }
 
-    const { teachers }: { teachers: InviteTeacherDto[] } = req.body;
+    const { teachers } = req.body;
 
     if (!Array.isArray(teachers) || teachers.length === 0) {
       return res.status(400).json({ error: "Teachers array is required" });
@@ -48,66 +45,65 @@ export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
 
     for (const teacher of teachers) {
       try {
-        if (!validatePhoneNumber(teacher.teacherPhone)) {
+        if (!teacher.teacherEmail) {
+          errors.push({ error: "Email is required" });
+          continue;
+        }
+
+        if (!validateEmail(teacher.teacherEmail)) {
           errors.push({
-            teacher: teacher.teacherName,
-            error: "Invalid phone number",
+            email: teacher.teacherEmail,
+            error: "Invalid email format",
           });
           continue;
         }
 
         const existingUser = await prisma.user.findFirst({
-          where: { phone: teacher.teacherPhone },
+          where: { email: teacher.teacherEmail },
         });
 
         if (existingUser) {
           errors.push({
-            teacher: teacher.teacherName,
-            error: "Phone already registered",
+            email: teacher.teacherEmail,
+            error: "Email already registered",
           });
           continue;
         }
 
-        const inviteCode = generateInviteToken();
+        const token = generateSecureToken();
         const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-        const inviteUrl = `${process.env.FRONTEND_URL || "https://app.nimaapp.com"}/join/${inviteCode}`;
 
         await prisma.inviteToken.create({
           data: {
             schoolId: req.user.schoolId,
             invitedBy: req.user.userId,
-            token: inviteCode,
-            invitedName: teacher.teacherName,
-            invitedPhone: teacher.teacherPhone,
+            token,
+            invitedEmail: teacher.teacherEmail,
+            invitedName: "Teacher",
             role: teacher.role || "TEACHER",
             expiresAt,
           },
         });
 
-        const whatsappMessage = formatWhatsAppMessage(
-          teacher.teacherName,
-          school.name,
-          inviteCode,
-          inviteUrl,
-        );
-
-        const whatsappLink = generateWhatsAppLink(
-          teacher.teacherPhone,
-          whatsappMessage,
-        );
+        try {
+          await sendTeacherInviteEmail(
+            teacher.teacherEmail,
+            "Teacher",
+            school.name,
+            token,
+          );
+        } catch (err: any) {
+          console.error("Failed to send invite email:", err?.message || err);
+        }
 
         invites.push({
-          code: inviteCode,
-          teacherName: teacher.teacherName,
-          teacherPhone: teacher.teacherPhone,
+          teacherEmail: teacher.teacherEmail,
           role: teacher.role || "TEACHER",
           expiresAt,
-          inviteUrl,
-          whatsappLink,
         });
       } catch (err) {
         errors.push({
-          teacher: teacher.teacherName,
+          email: teacher.teacherEmail,
           error: "Failed to create invite",
         });
       }

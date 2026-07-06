@@ -70,27 +70,37 @@ model TeacherAssignment {
   id        String   @id @default(cuid())
   teacherId String
   schoolId  String
-  classId   String
   type      String // "form" or "subject"
-  subjectId String? // only for subject assignments
+  subjectId String? // null for form teacher, subject id for subject teacher
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Sync metadata
-  syncStatus String    @default("pending") // "pending" | "synced" | "failed"
+  syncStatus String    @default("pending")
   syncedAt   DateTime?
   version    Int       @default(1)
 
-  // Relations
   teacher User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  class   Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
 
-  @@unique([teacherId, classId, type, subjectId]) // no duplicate assignments
+  classes TeacherAssignmentClass[]
+
+  @@unique([teacherId, type, subjectId])
   @@index([teacherId])
-  @@index([classId])
   @@index([subjectId])
   @@index([syncStatus])
+}
+
+model TeacherAssignmentClass {
+  id           String   @id @default(cuid())
+  assignmentId String
+  classId      String
+  createdAt    DateTime @default(now())
+
+  assignment TeacherAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  class      Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, classId])
+  @@index([classId])
 }
 
 // ============= INVITE & PASSWORD RESET TOKENS =============
@@ -183,9 +193,9 @@ model Class {
   version    Int       @default(1)
 
   // Relations
-  school      School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  students    Student[]
-  assignments TeacherAssignment[]
+  school           School                   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  students         Student[]
+  assignmentLinks  TeacherAssignmentClass[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
