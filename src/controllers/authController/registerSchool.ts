@@ -52,10 +52,29 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
-    await prisma.session.updateMany({
-      where: { userId: principal.id, isPrimary: true },
-      data: { refreshToken },
+    const existingSession = await prisma.session.findFirst({
+      where: { userId: principal.id },
+      orderBy: { lastActivityAt: "desc" },
     });
+
+    if (existingSession) {
+      await prisma.session.update({
+        where: { id: existingSession.id },
+        data: { refreshToken, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
+      });
+    } else {
+      await prisma.session.create({
+        data: {
+          userId: principal.id,
+          deviceId: req.body.deviceId || "web",
+          deviceType: "web",
+          deviceName: "Web Browser",
+          refreshToken,
+          isPrimary: true,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+    }
 
     res.status(201).json({
       message: "School registered successfully",
