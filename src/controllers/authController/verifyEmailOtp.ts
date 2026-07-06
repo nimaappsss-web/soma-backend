@@ -1,9 +1,10 @@
 import { Response } from "express";
-import { AuthRequest } from "../../types";
-import { prisma } from "../../utils/prisma";
-import { validateEmail } from "../../utils/validation";
+
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { validateEmail } from "../../utils/validation";
+import { prisma } from "../../utils/prisma";
+import { AuthRequest } from "../../types";
 
 export const verifyEmailOtp = async (req: AuthRequest, res: Response) => {
   try {
