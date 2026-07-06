@@ -134,6 +134,8 @@ export const verifyOTP = async (req: AuthRequest, res: Response) => {
         role: user.role,
         schoolId: user.schoolId,
         schoolName: user.school?.name || null,
+        emailVerified: user.emailVerified,
+        hasSchool: !!user.schoolId,
         needsRegistration,
       },
       accessToken,

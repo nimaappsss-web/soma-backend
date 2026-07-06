@@ -114,6 +114,8 @@ export const registerPrincipal = async (req: AuthRequest, res: Response) => {
         phone: principal.phone,
         role: principal.role,
         image: principal.image,
+        emailVerified: principal.emailVerified,
+        hasSchool: !!principal.schoolId,
       },
       emailOtpSent,
       accessToken,

@@ -75,6 +75,8 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
         role: updatedUser.role,
         image: updatedUser.image,
         schoolId: updatedUser.schoolId,
+        emailVerified: updatedUser.emailVerified,
+        hasSchool: !!updatedUser.schoolId,
       },
       accessToken,
       refreshToken,
