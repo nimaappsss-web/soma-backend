@@ -40,14 +40,13 @@ export const sendWelcomeEmail = async (to: string, name: string) => {
 
 export const sendTeacherInviteEmail = async (
   to: string,
-  teacherName: string,
   schoolName: string,
-  otp: string,
+  link: string,
 ) => {
   await sendViaSendGrid(
     to,
     `You're Invited to Join ${schoolName} on Nima`,
-    teacherInviteHtml(teacherName, schoolName, otp),
+    teacherInviteHtml(schoolName, link),
   );
 };
 

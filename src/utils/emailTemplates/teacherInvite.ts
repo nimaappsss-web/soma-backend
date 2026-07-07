@@ -1,4 +1,4 @@
-export const teacherInviteHtml = (teacherName: string, schoolName: string, otp: string) => `
+export const teacherInviteHtml = (schoolName: string, link: string) => `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -11,13 +11,13 @@ export const teacherInviteHtml = (teacherName: string, schoolName: string, otp: 
     </tr>
     <tr>
       <td style="padding: 32px;">
-        <p style="font-size: 16px; color: #333; line-height: 1.6;">Hi ${teacherName},</p>
+        <p style="font-size: 16px; color: #333; line-height: 1.6;">Hi there,</p>
         <p style="font-size: 16px; color: #333; line-height: 1.6;">You have been invited to join <strong>${schoolName}</strong> on Nima.</p>
-        <p style="font-size: 16px; color: #333; line-height: 1.6;">Use the OTP below to verify your email and set up your account:</p>
-        <div style="background: #f4f4f4; border-radius: 8px; padding: 16px; text-align: center; margin: 24px 0;">
-          <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #4F46E5;">${otp}</span>
+        <p style="font-size: 16px; color: #333; line-height: 1.6;">Click the button below to set up your account:</p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${link}" style="background: #4F46E5; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">Accept Invitation</a>
         </div>
-        <p style="font-size: 14px; color: #888; line-height: 1.5;">This OTP expires in 10 minutes.</p>
+        <p style="font-size: 14px; color: #888; line-height: 1.5;">This link expires in 48 hours.</p>
         <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0;">
         <p style="font-size: 14px; color: #888; line-height: 1.5;">If you weren't expecting this invitation, please ignore this email.</p>
       </td>

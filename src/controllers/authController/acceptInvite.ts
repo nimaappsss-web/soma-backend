@@ -1,21 +1,26 @@
 import { Response } from "express";
-import { AuthRequest, AcceptInviteDto } from "../../types";
+import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
-import { validatePhoneNumber } from "../../utils/validation";
+import { validateEmail } from "../../utils/validation";
+import { hashPassword, validatePassword } from "../../utils/password";
+import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
 
 export const acceptInvite = async (req: AuthRequest, res: Response) => {
   try {
-    const { token, phone }: AcceptInviteDto = req.body;
+    const { token, name, password, assignments } = req.body;
 
-    if (!token || !phone) {
-      return res
-        .status(400)
-        .json({ error: "Token and phone number are required" });
+    if (!token) {
+      return res.status(400).json({ error: "Token is required" });
     }
 
-    if (!validatePhoneNumber(phone)) {
-      return res.status(400).json({ error: "Invalid phone number format" });
+    if (!name || !password) {
+      return res.status(400).json({ error: "Name and password are required" });
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.message });
     }
 
     const inviteToken = await prisma.inviteToken.findUnique({
@@ -23,59 +28,106 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
     });
 
     if (!inviteToken) {
-      return res.status(404).json({ error: "Invalid invite code" });
+      return res.status(404).json({ error: "Invalid invite link" });
     }
 
     if (inviteToken.usedAt) {
-      return res.status(400).json({ error: "Invite code already used" });
+      return res.status(400).json({ error: "This invite has already been used" });
     }
 
     if (inviteToken.expiresAt < new Date()) {
-      return res.status(400).json({ error: "Invite code expired" });
+      return res.status(400).json({ error: "This invite link has expired" });
     }
 
-    if (inviteToken.invitedPhone !== phone) {
-      return res
-        .status(400)
-        .json({ error: "Phone number does not match invite" });
+    const email = inviteToken.invitedEmail;
+    if (!email) {
+      return res.status(400).json({ error: "No email associated with this invite" });
     }
 
     const existingUser = await prisma.user.findFirst({
-      where: { phone },
+      where: { email },
     });
 
     if (existingUser) {
-      return res.status(400).json({ error: "Phone number already registered" });
+      return res.status(400).json({ error: "A user with this email already exists" });
     }
 
-    const user = await prisma.user.create({
-      data: {
-        name: inviteToken.invitedName || "Teacher",
-        phone,
-        email: inviteToken.invitedEmail || null,
-        role: inviteToken.role,
-        schoolId: inviteToken.schoolId,
-        passwordHash: null,
-        active: true,
-      },
+    const passwordHash = await hashPassword(password);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name,
+          email,
+          role: inviteToken.role,
+          schoolId: inviteToken.schoolId,
+          passwordHash,
+          emailVerified: true,
+          active: true,
+        },
+      });
+
+      await tx.inviteToken.update({
+        where: { id: inviteToken.id },
+        data: { usedAt: new Date(), usedBy: user.id },
+      });
+
+      if (assignments && Array.isArray(assignments)) {
+        for (const assignment of assignments) {
+          const { subjectId, classIds } = assignment;
+
+          if (!classIds || !Array.isArray(classIds) || classIds.length === 0) {
+            continue;
+          }
+
+          const teacherAssignment = await tx.teacherAssignment.create({
+            data: {
+              teacherId: user.id,
+              schoolId: inviteToken.schoolId,
+              type: subjectId ? "subject" : "form",
+              subjectId: subjectId || null,
+            },
+          });
+
+          await tx.teacherAssignmentClass.createMany({
+            data: classIds.map((classId: string) => ({
+              assignmentId: teacherAssignment.id,
+              classId,
+            })),
+          });
+        }
+      }
+
+      return user;
     });
 
-    await prisma.inviteToken.update({
-      where: { id: inviteToken.id },
-      data: {
-        usedAt: new Date(),
-        usedBy: user.id,
-      },
+    const tokenPayload = {
+      userId: result.id,
+      schoolId: result.schoolId || undefined,
+      role: result.role,
+      email: result.email || undefined,
+    };
+
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    const school = await prisma.school.findUnique({
+      where: { id: result.schoolId! },
+      select: { name: true },
     });
 
-    res.json({
-      message: "Account created successfully. Please verify with OTP to login.",
+    res.status(201).json({
+      message: "Account created successfully",
       user: {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        role: user.role,
+        id: result.id,
+        name: result.name,
+        email: result.email,
+        role: result.role,
+        schoolId: result.schoolId,
+        schoolName: school?.name || null,
       },
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Accept Invite");

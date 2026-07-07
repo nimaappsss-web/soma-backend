@@ -8,6 +8,7 @@ import {
   me,
   inviteTeacher,
   bulkInviteTeachers,
+  inviteInfo,
   acceptInvite,
   sendOTP,
   verifyOTP,
@@ -245,9 +246,29 @@ router.post("/invite-teacher", authenticateToken, inviteTeacher);
 
 /**
  * @swagger
+ * /api/auth/invite-info:
+ *   get:
+ *     summary: Get school info + subjects + classes for an invite token
+ *     tags: [Teacher Management]
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: School, subjects, and classes
+ *       404:
+ *         description: Invalid token
+ */
+router.get("/invite-info", inviteInfo);
+
+/**
+ * @swagger
  * /api/auth/accept-invite:
  *   post:
- *     summary: Accept teacher invitation and set password
+ *     summary: Accept teacher invitation (click from email link)
  *     tags: [Teacher Management]
  *     requestBody:
  *       required: true
@@ -255,22 +276,30 @@ router.post("/invite-teacher", authenticateToken, inviteTeacher);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [token, password, deviceId, deviceName]
+ *             required: [token, name, password]
  *             properties:
  *               token:
  *                 type: string
+ *               name:
+ *                 type: string
+ *                 example: Mr. Adeyemi
  *               password:
  *                 type: string
  *                 example: SecurePass123
- *               deviceId:
- *                 type: string
- *                 example: device-002
- *               deviceName:
- *                 type: string
- *                 example: Chrome Browser
+ *               assignments:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     subjectId:
+ *                       type: string
+ *                     classIds:
+ *                       type: array
+ *                       items:
+ *                         type: string
  *     responses:
- *       200:
- *         description: Invite accepted successfully
+ *       201:
+ *         description: Account created successfully
  *       400:
  *         description: Invalid or expired token
  */

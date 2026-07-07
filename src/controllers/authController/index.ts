@@ -9,6 +9,7 @@ export { bulkInviteTeachers } from "./bulkInviteTeachers";
 export { sendOTP } from "./sendOTP";
 export { verifyOTP } from "./verifyOTP";
 export { verifyEmailOtp } from "./verifyEmailOtp";
+export { inviteInfo } from "./inviteInfo";
 export { acceptInvite } from "./acceptInvite";
 export { forgotPassword } from "./forgotPassword";
 export { resetPassword } from "./resetPassword";
