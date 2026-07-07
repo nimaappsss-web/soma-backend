@@ -15,6 +15,14 @@ export const refresh = async (req: AuthRequest, res: Response) => {
 
     const decoded = verifyToken(refreshToken);
 
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+    });
+
+    if (!user || !user.active) {
+      return res.status(403).json({ error: "User not found or inactive" });
+    }
+
     const session = await prisma.session.findFirst({
       where: {
         userId: decoded.userId,
@@ -23,19 +31,35 @@ export const refresh = async (req: AuthRequest, res: Response) => {
     });
 
     if (!session) {
-      return res.status(403).json({ error: "Invalid refresh token" });
+      const latestSession = await prisma.session.findFirst({
+        where: { userId: decoded.userId },
+        orderBy: { lastActivityAt: "desc" },
+      });
+
+      if (latestSession) {
+        const newAccessToken = generateAccessToken({
+          userId: user.id,
+          schoolId: user.schoolId || undefined,
+          role: user.role,
+          email: user.email || undefined,
+        });
+
+        await prisma.session.update({
+          where: { id: latestSession.id },
+          data: { lastActivityAt: new Date() },
+        });
+
+        return res.json({
+          accessToken: newAccessToken,
+          refreshToken: latestSession.refreshToken,
+        });
+      }
+
+      return res.status(403).json({ error: "No session found" });
     }
 
     if (session.expiresAt < new Date()) {
       return res.status(403).json({ error: "Refresh token expired" });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-    });
-
-    if (!user || !user.active) {
-      return res.status(403).json({ error: "User not found or inactive" });
     }
 
     const newAccessToken = generateAccessToken({
