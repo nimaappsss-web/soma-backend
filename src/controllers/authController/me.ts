@@ -11,11 +11,17 @@ export const me = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      include: {
-        school: true,
-        assignments: {
-          include: { classes: true, subject: true },
-        },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        active: true,
+        passwordHash: true,
+        emailVerified: true,
+        schoolId: true,
+        school: { select: { id: true, name: true, logo: true, state: true, lga: true, schoolType: true } },
       },
     });
 
@@ -31,23 +37,9 @@ export const me = async (req: AuthRequest, res: Response) => {
       role: user.role,
       active: user.active,
       needsRegistration: !user.passwordHash,
+      emailVerified: user.emailVerified,
       schoolId: user.schoolId,
-      school: user.school ? {
-        id: user.school.id,
-        name: user.school.name,
-        logo: user.school.logo,
-        state: user.school.state,
-        lga: user.school.lga,
-        schoolType: user.school.schoolType,
-      } : null,
-      assignments: user.assignments.map((a) => ({
-        id: a.id,
-        type: a.type,
-        subject: a.subject ? { id: a.subject.id, name: a.subject.name } : null,
-        classes: a.classes.map((c) => ({
-          classId: c.classId,
-        })),
-      })),
+      school: user.school,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Get User Profile");

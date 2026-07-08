@@ -17,7 +17,7 @@ import {
   resetPassword,
   completeRegistration,
 } from "../controllers/authController";
-import { authenticateToken } from "../middleware/auth";
+import { authenticateToken, requireRole } from "../middleware/auth";
 
 const router = Router();
 
@@ -81,7 +81,7 @@ router.post("/register-principal", registerPrincipal);
  *       201:
  *         description: School registered successfully
  */
-router.post("/register-school", authenticateToken, registerSchool);
+router.post("/register-school", authenticateToken, requireRole("PRINCIPAL"), registerSchool);
 
 /**
  * @swagger
@@ -242,7 +242,7 @@ router.get("/me", authenticateToken, me);
  *       403:
  *         description: Only principals can invite teachers
  */
-router.post("/invite-teacher", authenticateToken, inviteTeacher);
+router.post("/invite-teacher", authenticateToken, requireRole("PRINCIPAL"), inviteTeacher);
 
 /**
  * @swagger
@@ -386,7 +386,7 @@ router.post("/reset-password", resetPassword);
  *       201:
  *         description: Bulk invites created
  */
-router.post("/bulk-invite", authenticateToken, bulkInviteTeachers);
+router.post("/bulk-invite", authenticateToken, requireRole("PRINCIPAL"), bulkInviteTeachers);
 
 /**
  * @swagger

@@ -10,7 +10,7 @@ export const completeRegistration = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { name, password, assignments } = req.body;
+    const { name, password, formClassId, assignments } = req.body;
 
     if (!name || !password) {
       return res.status(400).json({ error: "Name and password are required" });
@@ -38,14 +38,14 @@ export const completeRegistration = async (req: AuthRequest, res: Response) => {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { name, passwordHash },
+      data: { name, passwordHash, formClassId: formClassId || null },
     });
 
     if (assignments && Array.isArray(assignments)) {
       for (const assignment of assignments) {
         const { subjectId, classIds } = assignment;
 
-        if (!classIds || !Array.isArray(classIds) || classIds.length === 0) {
+        if (!subjectId || !classIds || !Array.isArray(classIds) || classIds.length === 0) {
           continue;
         }
 
@@ -53,8 +53,8 @@ export const completeRegistration = async (req: AuthRequest, res: Response) => {
           data: {
             teacherId: user.id,
             schoolId: user.schoolId!,
-            type: subjectId ? "subject" : "form",
-            subjectId: subjectId || null,
+            type: "subject",
+            subjectId,
           },
         });
 
@@ -73,8 +73,15 @@ export const completeRegistration = async (req: AuthRequest, res: Response) => {
       where: { id: user.id },
       include: {
         school: true,
+        formClass: true,
         assignments: {
-          include: { classes: true },
+          include: {
+            classes: {
+              include: {
+                class: { select: { id: true, name: true, level: true, arm: true } },
+              },
+            },
+          },
         },
       },
     });
@@ -89,14 +96,16 @@ export const completeRegistration = async (req: AuthRequest, res: Response) => {
         role: updatedUser!.role,
         schoolId: updatedUser!.schoolId,
         schoolName: updatedUser!.school?.name || null,
-        assignments: updatedUser!.assignments.map((a) => ({
-          id: a.id,
-          type: a.type,
-          subjectId: a.subjectId,
-          classes: a.classes.map((c) => ({
-            classId: c.classId,
+        formClassId: updatedUser!.formClassId,
+        formClass: updatedUser!.formClass?.name || null,
+        assignments: updatedUser!.assignments
+          .filter((a) => a.type === "subject")
+          .map((a) => ({
+            id: a.id,
+            type: a.type,
+            subjectId: a.subjectId,
+            classes: a.classes.map((c) => c.class),
           })),
-        })),
       },
     });
   } catch (error) {

@@ -8,7 +8,7 @@ import { createErrorResponse } from "../../utils/errorHandler";
 
 export const acceptInvite = async (req: AuthRequest, res: Response) => {
   try {
-    const { token, name, password, assignments } = req.body;
+    const { token, name, password, formClassId, assignments } = req.body;
 
     if (!token) {
       return res.status(400).json({ error: "Token is required" });
@@ -64,6 +64,10 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
           passwordHash,
           emailVerified: true,
           active: true,
+          formClassId: formClassId || null,
+        },
+        include: {
+          formClass: { select: { id: true, name: true } },
         },
       });
 
@@ -76,7 +80,7 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
         for (const assignment of assignments) {
           const { subjectId, classIds } = assignment;
 
-          if (!classIds || !Array.isArray(classIds) || classIds.length === 0) {
+          if (!subjectId || !classIds || !Array.isArray(classIds) || classIds.length === 0) {
             continue;
           }
 
@@ -84,8 +88,8 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
             data: {
               teacherId: user.id,
               schoolId: inviteToken.schoolId,
-              type: subjectId ? "subject" : "form",
-              subjectId: subjectId || null,
+              type: "subject",
+              subjectId,
             },
           });
 
@@ -111,11 +115,6 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
-    const school = await prisma.school.findUnique({
-      where: { id: result.schoolId! },
-      select: { name: true },
-    });
-
     res.status(201).json({
       message: "Account created successfully",
       user: {
@@ -124,7 +123,8 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
         email: result.email,
         role: result.role,
         schoolId: result.schoolId,
-        schoolName: school?.name || null,
+        formClassId: result.formClassId,
+        formClass: result.formClass?.name || null,
       },
       accessToken,
       refreshToken,

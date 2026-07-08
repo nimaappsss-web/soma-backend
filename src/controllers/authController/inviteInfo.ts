@@ -12,7 +12,6 @@ export const inviteInfo = async (req: Request, res: Response) => {
 
     const inviteToken = await prisma.inviteToken.findUnique({
       where: { token: token as string },
-      include: { user: { include: { school: true } } },
     });
 
     if (!inviteToken) {
@@ -27,29 +26,10 @@ export const inviteInfo = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "This invite link has expired" });
     }
 
-    const schoolId = inviteToken.schoolId;
-
-    const subjects = await prisma.subject.findMany({
-      where: { schoolId },
-      select: { id: true, name: true, code: true },
-    });
-
-    const classes = await prisma.class.findMany({
-      where: { schoolId },
-      select: { id: true, name: true, level: true, arm: true },
-    });
-
-    const school = await prisma.school.findUnique({
-      where: { id: schoolId },
-      select: { name: true },
-    });
-
     res.json({
       email: inviteToken.invitedEmail,
       role: inviteToken.role,
-      school: school || null,
-      subjects,
-      classes,
+      schoolId: inviteToken.schoolId,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Invite Info");

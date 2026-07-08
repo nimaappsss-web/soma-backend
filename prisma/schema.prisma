@@ -45,6 +45,7 @@ model User {
   phone        String?  @unique
   role         String   @default("teacher")
   image          String?
+  formClassId    String?
   passwordHash   String?
   emailVerified  Boolean  @default(false)
   active         Boolean  @default(true)
@@ -53,6 +54,7 @@ model User {
 
   school            School?              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   schoolAsPrincipal School?              @relation("SchoolPrincipal")
+  formClass         Class?               @relation(fields: [formClassId], references: [id], onDelete: SetNull)
   assignments       TeacherAssignment[]
   inviteTokens      InviteToken[]
   resetTokens       PasswordResetToken[]
@@ -62,6 +64,7 @@ model User {
   @@index([role])
   @@index([email])
   @@index([phone])
+  @@index([formClassId])
 }
 
 // ============= TEACHER ASSIGNMENTS =============
@@ -196,6 +199,7 @@ model Class {
   school           School                   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   students         Student[]
   assignmentLinks  TeacherAssignmentClass[]
+  formTeachers     User[]
 
   @@unique([schoolId, name])
   @@index([schoolId])

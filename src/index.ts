@@ -3,6 +3,9 @@ import { errorHandler } from "./middleware/errorHandler";
 import { swaggerSpec } from "./config/swagger";
 import uploadRoutes from "./routes/upload";
 import authRoutes from "./routes/auth";
+import teacherRoutes from "./routes/teachers";
+import subjectRoutes from "./routes/subjects";
+import classRoutes from "./routes/classes";
 
 import express, { Express, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -20,6 +23,9 @@ app.get("/", (req: Request, res: Response) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/teachers", teacherRoutes);
+app.use("/api/subjects", subjectRoutes);
+app.use("/api/classes", classRoutes);
 
 app.use(
   "/api-docs",
