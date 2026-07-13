@@ -6,6 +6,10 @@ import authRoutes from "./routes/auth";
 import teacherRoutes from "./routes/teachers";
 import subjectRoutes from "./routes/subjects";
 import classRoutes from "./routes/classes";
+import studentRoutes from "./routes/students";
+import schoolRoutes from "./routes/school";
+import attendanceRoutes from "./routes/attendance";
+import parentRoutes from "./routes/parents";
 
 import express, { Express, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -26,6 +30,10 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/teachers", teacherRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/classes", classRoutes);
+app.use("/api/students", studentRoutes);
+app.use("/api/school", schoolRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/parents", parentRoutes);
 
 app.use(
   "/api-docs",

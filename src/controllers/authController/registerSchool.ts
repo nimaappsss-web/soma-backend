@@ -11,7 +11,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { schoolName, state, lga, schoolType, logoUrl } = req.body;
+    const { schoolName, state, lga, schoolType, logoUrl, arms } = req.body;
 
     const principal = await prisma.user.findUnique({
       where: { id: req.user.userId },
@@ -33,6 +33,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
           state,
           lga,
           schoolType,
+          arms: arms ? JSON.stringify(arms) : undefined,
           logo: logoUrl || null,
           principalId: principal.id,
         },
@@ -89,6 +90,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
         state: result.school.state,
         lga: result.school.lga,
         schoolType: result.school.schoolType,
+        admissionPattern: result.school.admissionPattern,
       },
       user: {
         id: result.user.id,

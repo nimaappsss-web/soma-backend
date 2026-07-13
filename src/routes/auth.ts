@@ -16,8 +16,19 @@ import {
   forgotPassword,
   resetPassword,
   completeRegistration,
+  acceptParentInvite,
 } from "../controllers/authController";
-import { authenticateToken, requireRole } from "../middleware/auth";
+import { authenticateToken, requireAdmin } from "../middleware/auth";
+import {
+  loginLimiter,
+  sendOtpLimiter,
+  verifyOtpLimiter,
+  forgotPasswordLimiter,
+  resetPasswordLimiter,
+  registerPrincipalLimiter,
+  inviteTeacherLimiter,
+  bulkInviteLimiter,
+} from "../middleware/rateLimiter";
 
 const router = Router();
 
@@ -49,7 +60,7 @@ const router = Router();
  *       201:
  *         description: Principal registered successfully
  */
-router.post("/register-principal", registerPrincipal);
+router.post("/register-principal", registerPrincipalLimiter, registerPrincipal);
 
 /**
  * @swagger
@@ -81,7 +92,7 @@ router.post("/register-principal", registerPrincipal);
  *       201:
  *         description: School registered successfully
  */
-router.post("/register-school", authenticateToken, requireRole("PRINCIPAL"), registerSchool);
+router.post("/register-school", authenticateToken, requireAdmin(), registerSchool);
 
 /**
  * @swagger
@@ -118,7 +129,7 @@ router.post("/register-school", authenticateToken, requireRole("PRINCIPAL"), reg
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/login", login);
+router.post("/login", loginLimiter, login);
 
 /**
  * @swagger
@@ -242,7 +253,7 @@ router.get("/me", authenticateToken, me);
  *       403:
  *         description: Only principals can invite teachers
  */
-router.post("/invite-teacher", authenticateToken, requireRole("PRINCIPAL"), inviteTeacher);
+router.post("/invite-teacher", authenticateToken, requireAdmin(), inviteTeacherLimiter, inviteTeacher);
 
 /**
  * @swagger
@@ -307,6 +318,32 @@ router.post("/accept-invite", acceptInvite);
 
 /**
  * @swagger
+ * /api/auth/accept-parent-invite:
+ *   post:
+ *     summary: Accept parent invite and set password
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, password]
+ *             properties:
+ *               token:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Parent account set up successfully
+ *       400:
+ *         description: Invalid or expired token
+ */
+router.post("/accept-parent-invite", acceptParentInvite);
+
+/**
+ * @swagger
  * /api/auth/forgot-password:
  *   post:
  *     summary: Request password reset link
@@ -326,7 +363,7 @@ router.post("/accept-invite", acceptInvite);
  *       200:
  *         description: Password reset link sent (if email exists)
  */
-router.post("/forgot-password", forgotPassword);
+router.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
 
 /**
  * @swagger
@@ -353,7 +390,7 @@ router.post("/forgot-password", forgotPassword);
  *       400:
  *         description: Invalid or expired token
  */
-router.post("/reset-password", resetPassword);
+router.post("/reset-password", resetPasswordLimiter, resetPassword);
 
 /**
  * @swagger
@@ -386,7 +423,7 @@ router.post("/reset-password", resetPassword);
  *       201:
  *         description: Bulk invites created
  */
-router.post("/bulk-invite", authenticateToken, requireRole("PRINCIPAL"), bulkInviteTeachers);
+router.post("/bulk-invite", authenticateToken, requireAdmin(), bulkInviteLimiter, bulkInviteTeachers);
 
 /**
  * @swagger
@@ -409,7 +446,7 @@ router.post("/bulk-invite", authenticateToken, requireRole("PRINCIPAL"), bulkInv
  *       200:
  *         description: OTP sent successfully
  */
-router.post("/send-otp", sendOTP);
+router.post("/send-otp", sendOtpLimiter, sendOTP);
 
 /**
  * @swagger
@@ -437,7 +474,7 @@ router.post("/send-otp", sendOTP);
  *       200:
  *         description: Login successful
  */
-router.post("/verify-otp", verifyOTP);
+router.post("/verify-otp", verifyOtpLimiter, verifyOTP);
 
 /**
  * @swagger
@@ -465,7 +502,7 @@ router.post("/verify-otp", verifyOTP);
  *       200:
  *         description: Email verified, returns user + tokens
  */
-router.post("/verify-email-otp", verifyEmailOtp);
+router.post("/verify-email-otp", verifyOtpLimiter, verifyEmailOtp);
 
 /**
  * @swagger

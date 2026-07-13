@@ -21,7 +21,7 @@ export const me = async (req: AuthRequest, res: Response) => {
         passwordHash: true,
         emailVerified: true,
         schoolId: true,
-        school: { select: { id: true, name: true, logo: true, state: true, lga: true, schoolType: true } },
+        school: { select: { id: true, name: true, logo: true, state: true, lga: true, schoolType: true, arms: true } },
       },
     });
 
@@ -39,7 +39,7 @@ export const me = async (req: AuthRequest, res: Response) => {
       needsRegistration: !user.passwordHash,
       emailVerified: user.emailVerified,
       schoolId: user.schoolId,
-      school: user.school,
+      school: user.school ? { ...user.school, arms: JSON.parse(user.school.arms) } : null,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Get User Profile");

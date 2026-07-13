@@ -13,18 +13,20 @@ datasource db {
 // ============= SCHOOL & TENANT =============
 
 model School {
-  id          String   @id @default(cuid())
-  name        String
-  address     String
-  state       String
-  lga         String
-  schoolType  String   @default("secondary")
-  logo        String?
-  schoolCode  String?
-  principalId String?  @unique
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(cuid())
+  name              String
+  address           String
+  state             String
+  lga               String
+  schoolType        String   @default("secondary") // "creche", "kindergarten", "primary", "secondary", "both"
+  logo              String?
+  admissionPattern  String   @default("{year}/{seq}")
+  admissionCounter  Int      @default(1)
+  arms              String   @default("[\"A\",\"B\",\"C\"]")
+  principalId       String?  @unique
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   users     User[]
   classes   Class[]
@@ -98,6 +100,7 @@ model TeacherAssignmentClass {
   assignmentId String
   classId      String
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   assignment TeacherAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   class      Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
@@ -120,6 +123,8 @@ model InviteToken {
   expiresAt    DateTime
   usedAt       DateTime?
   usedBy       String?
+  emailFailed  Boolean   @default(false)
+  emailError   String?
   createdAt    DateTime  @default(now())
 
   user User @relation(fields: [invitedBy], references: [id], onDelete: Cascade)
@@ -238,6 +243,12 @@ model Student {
   admissionNo String // unique per school
   dateOfBirth DateTime?
   gender      String? // M, F
+  address     String?
+  imageUrl    String?
+  parentName  String?
+  parentPhone String?
+  parentEmail String?
+  status      String    @default("ACTIVE") // ACTIVE, TRANSFERRED, WITHDRAWN, GRADUATED
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -255,6 +266,7 @@ model Student {
   @@index([schoolId])
   @@index([classId])
   @@index([syncStatus])
+  @@index([status])
 }
 
 // ============= ATTENDANCE =============

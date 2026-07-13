@@ -12,10 +12,10 @@ export const inviteTeacher = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    if (req.user.role !== "PRINCIPAL") {
+    if (!["PRINCIPAL", "SCHOOL_ADMIN"].includes(req.user.role)) {
       return res
         .status(403)
-        .json({ error: "Only principals can invite teachers" });
+        .json({ error: "Only principals and school admins can invite teachers" });
     }
 
     if (!req.user.schoolId) {
@@ -39,7 +39,23 @@ export const inviteTeacher = async (req: AuthRequest, res: Response) => {
     if (existingUser) {
       return res
         .status(400)
-        .json({ error: "Teacher with this email already exists" });
+        .json({ error: "A user with this email already exists in the system" });
+    }
+
+    const pending = await prisma.inviteToken.findFirst({
+      where: {
+        schoolId: req.user.schoolId,
+        invitedEmail: teacherEmail,
+        role: "TEACHER",
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (pending) {
+      return res
+        .status(400)
+        .json({ error: "A pending invite already exists for this email" });
     }
 
     const school = await prisma.school.findUnique({

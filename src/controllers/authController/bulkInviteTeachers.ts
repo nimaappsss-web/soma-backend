@@ -12,13 +12,15 @@ export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    if (req.user.role !== "PRINCIPAL") {
+    const user = req.user;
+
+    if (!["PRINCIPAL", "SCHOOL_ADMIN"].includes(user.role)) {
       return res
         .status(403)
-        .json({ error: "Only principals can invite teachers" });
+        .json({ error: "Only principals and school admins can invite teachers" });
     }
 
-    if (!req.user.schoolId) {
+    if (!user.schoolId) {
       return res.status(400).json({ error: "No school registered yet" });
     }
 
@@ -33,87 +35,117 @@ export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
     }
 
     const school = await prisma.school.findUnique({
-      where: { id: req.user.schoolId },
+      where: { id: user.schoolId },
     });
 
     if (!school) {
       return res.status(404).json({ error: "School not found" });
     }
 
-    const invites = [];
-    const errors = [];
-
-    for (const teacher of teachers) {
-      try {
-        if (!teacher.teacherEmail) {
-          errors.push({ error: "Email is required" });
-          continue;
-        }
-
-        if (!validateEmail(teacher.teacherEmail)) {
-          errors.push({
-            email: teacher.teacherEmail,
-            error: "Invalid email format",
-          });
-          continue;
-        }
-
-        const existingUser = await prisma.user.findFirst({
-          where: { email: teacher.teacherEmail },
-        });
-
-        if (existingUser) {
-          errors.push({
-            email: teacher.teacherEmail,
-            error: "Email already registered",
-          });
-          continue;
-        }
-
-        const token = generateSecureToken();
-        const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-
-        await prisma.inviteToken.create({
-          data: {
-            schoolId: req.user.schoolId,
-            invitedBy: req.user.userId,
-            token,
-            invitedEmail: teacher.teacherEmail,
-            invitedName: "Teacher",
-            role: teacher.role || "TEACHER",
-            expiresAt,
-          },
-        });
-
-        const frontendUrl = process.env.FRONTEND_URL || "https://soma-frontend-zeta.vercel.app";
-        const inviteLink = `${frontendUrl}/verify-teacher?token=${token}&schoolId=${school.id}`;
-
-        try {
-          await sendTeacherInviteEmail(teacher.teacherEmail, school.name, inviteLink);
-        } catch (err: any) {
-          console.error("Failed to send invite email:", err?.message || err);
-        }
-
-        invites.push({
-          teacherEmail: teacher.teacherEmail,
-          role: teacher.role || "TEACHER",
-          expiresAt,
-        });
-      } catch (err) {
-        errors.push({
-          email: teacher.teacherEmail,
-          error: "Failed to create invite",
-        });
+    // --- Validate emails upfront ---
+    const errors: any[] = [];
+    const validTeachers = teachers.filter((t) => {
+      if (!t.teacherEmail) {
+        errors.push({ error: "Email is required" });
+        return false;
       }
+      if (!validateEmail(t.teacherEmail)) {
+        errors.push({ email: t.teacherEmail, error: "Invalid email format" });
+        return false;
+      }
+      return true;
+    });
+
+    if (validTeachers.length === 0) {
+      return res.status(400).json({ error: "No valid teacher emails", errors });
     }
 
+    const emails = validTeachers.map((t) => t.teacherEmail);
+
+    // --- Batch check existing users and pending invites (2 parallel queries) ---
+    const [existingUsers, pendingInvites] = await Promise.all([
+      prisma.user.findMany({
+        where: { email: { in: emails } },
+        select: { email: true },
+      }),
+      prisma.inviteToken.findMany({
+        where: {
+          schoolId: user.schoolId,
+          invitedEmail: { in: emails },
+          role: "TEACHER",
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        select: { invitedEmail: true },
+      }),
+    ]);
+
+    const existingEmailSet = new Set(existingUsers.map((u) => u.email));
+    const pendingEmailSet = new Set(pendingInvites.map((i) => i.invitedEmail).filter(Boolean));
+
+    // --- Build invite data for valid, non-duplicate emails ---
+    const now = Date.now();
+    const frontendUrl = process.env.FRONTEND_URL || "https://soma-frontend-zeta.vercel.app";
+
+    const inviteData = validTeachers
+      .filter((t) => {
+        if (existingEmailSet.has(t.teacherEmail)) {
+          errors.push({ email: t.teacherEmail, error: "A user with this email already exists in the system" });
+          return false;
+        }
+        if (pendingEmailSet.has(t.teacherEmail)) {
+          errors.push({ email: t.teacherEmail, error: "A pending invite already exists for this email" });
+          return false;
+        }
+        return true;
+      })
+      .map((t) => ({
+        schoolId: user.schoolId!,
+        invitedBy: user.userId,
+        token: generateSecureToken(),
+        invitedEmail: t.teacherEmail,
+        invitedName: "Teacher",
+        role: t.role || "TEACHER",
+        expiresAt: new Date(now + 48 * 60 * 60 * 1000),
+      }));
+
+    if (inviteData.length === 0) {
+      return res.status(400).json({ error: "All emails already have users or pending invites", errors });
+    }
+
+    // --- Bulk create all invite tokens (1 query) ---
+    await prisma.inviteToken.createMany({ data: inviteData });
+
+    // --- Fetch back to get IDs (needed for response) ---
+    const createdInvites = await prisma.inviteToken.findMany({
+      where: {
+        schoolId: user.schoolId,
+        token: { in: inviteData.map((i) => i.token) },
+      },
+      select: { id: true, token: true, invitedEmail: true, role: true, expiresAt: true },
+    });
+
+    // --- Fire all emails concurrently (fire-and-forget errors) ---
+    Promise.allSettled(
+      createdInvites.map((inv) => {
+        const inviteLink = `${frontendUrl}/verify-teacher?token=${inv.token}&schoolId=${school.id}`;
+        return sendTeacherInviteEmail(inv.invitedEmail!, school.name, inviteLink).catch((err) => {
+          console.error("Failed to send invite email:", err?.message || err);
+        });
+      }),
+    );
+
     res.status(201).json({
-      message: `Created ${invites.length} invite(s)`,
-      invites,
+      message: `Created ${createdInvites.length} invite(s)`,
+      invites: createdInvites.map((inv) => ({
+        teacherEmail: inv.invitedEmail,
+        role: inv.role,
+        expiresAt: inv.expiresAt,
+      })),
       errors: errors.length > 0 ? errors : undefined,
       summary: {
         total: teachers.length,
-        successful: invites.length,
+        successful: createdInvites.length,
         failed: errors.length,
       },
     });

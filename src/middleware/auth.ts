@@ -2,6 +2,26 @@ import { Response, NextFunction } from "express";
 import { verifyToken } from "../utils/jwt";
 import { AuthRequest } from "../types";
 
+export const optionalAuth = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (token) {
+    try {
+      const decoded = verifyToken(token);
+      req.user = decoded;
+    } catch {
+      // Ignore invalid tokens
+    }
+  }
+
+  next();
+};
+
 export const authenticateToken = (
   req: AuthRequest,
   res: Response,
@@ -24,8 +44,6 @@ export const authenticateToken = (
 };
 
 export const requireRole = (...roles: string[]) => {
-
-
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: "Authentication required" });
@@ -38,6 +56,9 @@ export const requireRole = (...roles: string[]) => {
     next();
   };
 };
+
+export const requireAdmin = () =>
+  requireRole("PRINCIPAL", "SCHOOL_ADMIN");
 
 export const tenantIsolation = (
   req: AuthRequest,

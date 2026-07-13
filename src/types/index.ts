@@ -9,13 +9,14 @@ export interface RegisterSchoolDto {
   schoolName: string;
   state: string;
   lga: string;
-  schoolType: "PRIMARY" | "SECONDARY" | "BOTH";
+  schoolType: "CRECHE" | "KINDERGARTEN" | "PRIMARY" | "SECONDARY" | "BOTH";
   principalName: string;
   principalEmail?: string;
   principalPhone: string;
   password: string;
   imageUrl?: string;
   logoUrl?: string;
+  arms?: string[];
 }
 
 export interface RegisterPrincipalDto {

@@ -27,6 +27,7 @@ export const teacherDetails = async (req: AuthRequest, res: Response) => {
         formClassId: true,
         formClass: { select: { id: true, name: true, level: true, arm: true } },
         createdAt: true,
+        updatedAt: true,
         assignments: {
           where: { type: "subject" },
           select: {
@@ -56,6 +57,7 @@ export const teacherDetails = async (req: AuthRequest, res: Response) => {
       formClassId: teacher.formClassId,
       formClass: teacher.formClass || null,
       createdAt: teacher.createdAt,
+      updatedAt: teacher.updatedAt,
       assignments: teacher.assignments.map((a) => ({
         id: a.id,
         subject: a.subject,

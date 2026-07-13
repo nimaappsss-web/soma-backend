@@ -9,41 +9,53 @@ export const listTeachers = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const activeTeachers = await prisma.user.findMany({
-      where: {
-        schoolId: req.user.schoolId,
-        role: { in: ["TEACHER", "BURSAR"] },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        active: true,
-        formClassId: true,
-        formClass: { select: { name: true } },
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const skip = (page - 1) * limit;
 
-    const pendingInvites = await prisma.inviteToken.findMany({
-      where: {
-        schoolId: req.user.schoolId,
-        usedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      select: {
-        id: true,
-        token: true,
-        invitedEmail: true,
-        role: true,
-        createdAt: true,
-        expiresAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const teacherWhere = {
+      schoolId: req.user.schoolId,
+      role: { in: ["TEACHER", "BURSAR"] },
+    };
+
+    const [activeTeachers, total, pendingInvites] = await Promise.all([
+      prisma.user.findMany({
+        where: teacherWhere,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          active: true,
+          formClassId: true,
+          formClass: { select: { name: true } },
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.user.count({ where: teacherWhere }),
+      prisma.inviteToken.findMany({
+        where: {
+          schoolId: req.user.schoolId,
+          role: { in: ["TEACHER", "BURSAR"] },
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        select: {
+          id: true,
+          token: true,
+          invitedEmail: true,
+          role: true,
+          createdAt: true,
+          expiresAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
 
     const now = Date.now();
 
@@ -59,6 +71,7 @@ export const listTeachers = async (req: AuthRequest, res: Response) => {
         formClassId: t.formClassId,
         formClass: t.formClass?.name || null,
         createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
       })),
       pendingInvites: pendingInvites.map((i) => ({
         id: i.id,
@@ -69,6 +82,9 @@ export const listTeachers = async (req: AuthRequest, res: Response) => {
         expiresAt: i.expiresAt,
         expiresIn: Math.max(0, Math.floor((i.expiresAt.getTime() - now) / 1000)),
       })),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "List Teachers");

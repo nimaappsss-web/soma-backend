@@ -23,6 +23,7 @@ export const register = async (req: AuthRequest, res: Response) => {
       password,
       imageUrl,
       logoUrl,
+      arms,
     }: RegisterSchoolDto = req.body;
 
     if (!validatePhoneNumber(principalPhone)) {
@@ -65,6 +66,7 @@ export const register = async (req: AuthRequest, res: Response) => {
         state,
         lga,
         schoolType,
+        arms: arms ? JSON.stringify(arms) : undefined,
         logo: logoUrl || null,
       },
     });

@@ -1,4 +1,4 @@
-import { welcomeHtml, teacherInviteHtml, emailOtpHtml } from "./emailTemplates";
+import { welcomeHtml, teacherInviteHtml, emailOtpHtml, parentInviteHtml } from "./emailTemplates";
 
 const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@gmail.com";
 
@@ -48,6 +48,43 @@ export const sendTeacherInviteEmail = async (
     `You're Invited to Join ${schoolName} on Nima`,
     teacherInviteHtml(schoolName, link),
   );
+};
+
+export const sendParentInviteEmail = async (
+  to: string,
+  schoolName: string,
+  parentName: string,
+  studentName: string,
+  link: string,
+) => {
+  if (process.env.DISABLE_EMAILS) return;
+
+  await sendViaSendGrid(
+    to,
+    `Your child has been registered at ${schoolName}`,
+    parentInviteHtml(schoolName, parentName, studentName, link),
+  );
+};
+
+export const trySendParentEmail = async (
+  to: string,
+  schoolName: string,
+  parentName: string,
+  studentName: string,
+  link: string,
+): Promise<{ ok: boolean; error?: string }> => {
+  if (process.env.DISABLE_EMAILS) return { ok: true };
+
+  try {
+    await sendViaSendGrid(
+      to,
+      `Your child has been registered at ${schoolName}`,
+      parentInviteHtml(schoolName, parentName, studentName, link),
+    );
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Unknown email error" };
+  }
 };
 
 export const sendEmailOtp = async (

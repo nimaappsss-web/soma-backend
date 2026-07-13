@@ -1,13 +1,19 @@
-import { Request, Response } from "express";
+import { Response } from "express";
+import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 
-const DEFAULT_LEVELS = ["KG1", "KG2", "P1", "P2", "P3", "P4", "P5", "P6", "JSS1", "JSS2", "JSS3", "SS1", "SS2", "SS3"];
-const DEFAULT_ARMS = ["A", "B", "C"];
+const LEVELS_BY_TYPE: Record<string, string[]> = {
+  creche: ["Creche 1", "Creche 2"],
+  kindergarten: ["KG 1", "KG 2"],
+  primary: ["Pry 1", "Pry 2", "Pry 3", "Pry 4", "Pry 5", "Pry 6"],
+  secondary: ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"],
+  both: ["KG 1", "KG 2", "Pry 1", "Pry 2", "Pry 3", "Pry 4", "Pry 5", "Pry 6", "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"],
+};
 
-export const listClasses = async (req: Request, res: Response) => {
+export const listClasses = async (req: AuthRequest, res: Response) => {
   try {
-    const schoolId = (req.query.schoolId as string) || (req as any).user?.schoolId;
+    const schoolId = (req.query.schoolId as string) || req.user?.schoolId;
 
     if (!schoolId) {
       return res.status(400).json({ error: "School ID is required" });
@@ -18,8 +24,18 @@ export const listClasses = async (req: Request, res: Response) => {
     });
 
     if (count === 0) {
-      const data = DEFAULT_LEVELS.flatMap((level) =>
-        DEFAULT_ARMS.map((arm) => ({
+      const school = await prisma.school.findUnique({
+        where: { id: schoolId },
+        select: { schoolType: true, arms: true },
+      });
+
+      const type = school?.schoolType || "secondary";
+      const levels = LEVELS_BY_TYPE[type] || LEVELS_BY_TYPE.secondary;
+      const allArms: string[] = school?.arms ? JSON.parse(school.arms) : ["A", "B", "C"];
+      const arms = type === "creche" ? [allArms[0] || "A"] : allArms;
+
+      const data = levels.flatMap((level) =>
+        arms.map((arm) => ({
           schoolId,
           name: `${level} ${arm}`,
           level,
@@ -36,7 +52,7 @@ export const listClasses = async (req: Request, res: Response) => {
         { level: "asc" },
         { arm: "asc" },
       ],
-      select: { id: true, name: true, level: true, arm: true, createdAt: true },
+      select: { id: true, name: true, level: true, arm: true, createdAt: true, updatedAt: true, syncStatus: true, syncedAt: true, version: true },
     });
 
     const levels = [...new Set(classes.map((c) => c.level))];
