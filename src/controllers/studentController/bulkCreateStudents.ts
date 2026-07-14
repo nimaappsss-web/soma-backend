@@ -38,8 +38,15 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "No valid students to create", errors });
     }
 
-    // --- Fetch existing data (2 parallel queries) ---
-    const [existingStudents, school] = await Promise.all([
+    // --- Normalize a class name for matching ---
+    const normalizeName = (name: string) =>
+      name.replace(/\s+/g, " ").trim().toLowerCase();
+
+    // --- Collect unique classIds ---
+    const uniqueClassIds = [...new Set(validStudents.map((s) => s.classId))];
+
+    // --- Fetch existing data (3 parallel queries) ---
+    const [existingStudents, school, allSchoolClasses] = await Promise.all([
       prisma.student.findMany({
         where: { schoolId },
         select: { name: true, classId: true, admissionNo: true },
@@ -48,10 +55,43 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
         where: { id: schoolId },
         select: { admissionPattern: true, admissionCounter: true, name: true },
       }),
+      prisma.class.findMany({
+        where: { schoolId },
+        select: { id: true, name: true },
+      }),
     ]);
 
     if (!school) {
       return res.status(404).json({ error: "School not found" });
+    }
+
+    // --- Resolve each student's classId to a real class UUID ---
+    // Build lookup: normalized class name → class UUID
+    const nameToId = new Map<string, string>();
+    for (const c of allSchoolClasses) {
+      nameToId.set(c.id, c.id);
+      nameToId.set(normalizeName(c.name), c.id);
+    }
+
+    const resolvedClassIds = new Map<string, string>(); // input → resolved UUID
+    const missingClassIds: string[] = [];
+
+    for (const rawId of uniqueClassIds) {
+      if (nameToId.has(rawId)) {
+        resolvedClassIds.set(rawId, nameToId.get(rawId)!);
+      } else if (nameToId.has(normalizeName(rawId))) {
+        resolvedClassIds.set(rawId, nameToId.get(normalizeName(rawId))!);
+      } else {
+        missingClassIds.push(rawId);
+      }
+    }
+
+    if (missingClassIds.length > 0) {
+      return res.status(400).json({
+        error: "Some classes don't exist on the server. Check your class names and sync before adding students.",
+        missingClassIds,
+        availableClasses: allSchoolClasses.map((c) => c.name),
+      });
     }
 
     // --- Build lookup maps ---
@@ -78,7 +118,8 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
     const localNameClassSet = new Set<string>();
 
     for (const s of validStudents) {
-      const nameClassKey = `${s.name}|${s.classId}`;
+      const actualClassId = resolvedClassIds.get(s.classId)!;
+      const nameClassKey = `${s.name}|${actualClassId}`;
 
       if (existingNameClassSet.has(nameClassKey) || localNameClassSet.has(nameClassKey)) {
         errors.push({ admissionNo: s.admissionNo || "unknown", error: "Duplicate student" });
@@ -100,7 +141,7 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
 
       toCreate.push({
         schoolId,
-        classId: s.classId,
+        classId: actualClassId,
         name: s.name,
         admissionNo,
         gender: s.gender || null,

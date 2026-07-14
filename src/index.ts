@@ -10,6 +10,7 @@ import studentRoutes from "./routes/students";
 import schoolRoutes from "./routes/school";
 import attendanceRoutes from "./routes/attendance";
 import parentRoutes from "./routes/parents";
+import lessonNoteRoutes from "./routes/lessonNotes";
 
 import express, { Express, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -34,6 +35,7 @@ app.use("/api/students", studentRoutes);
 app.use("/api/school", schoolRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/parents", parentRoutes);
+app.use("/api/lesson-notes", lessonNoteRoutes);
 
 app.use(
   "/api-docs",

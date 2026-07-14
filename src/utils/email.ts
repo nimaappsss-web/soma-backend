@@ -1,4 +1,4 @@
-import { welcomeHtml, teacherInviteHtml, emailOtpHtml, parentInviteHtml } from "./emailTemplates";
+import { welcomeHtml, teacherInviteHtml, emailOtpHtml, parentInviteHtml, passwordResetHtml } from "./emailTemplates";
 
 const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@gmail.com";
 
@@ -96,5 +96,19 @@ export const sendEmailOtp = async (
     to,
     "Verify Your Email — Nima",
     emailOtpHtml(name, otp),
+  );
+};
+
+export const sendPasswordResetEmail = async (
+  to: string,
+  name: string,
+  link: string,
+) => {
+  if (process.env.DISABLE_EMAILS) return;
+
+  await sendViaSendGrid(
+    to,
+    "Reset Your Password — Nima",
+    passwordResetHtml(name, link),
   );
 };

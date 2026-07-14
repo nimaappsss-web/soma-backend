@@ -3,6 +3,7 @@ import { AuthRequest, ForgotPasswordDto } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { validateEmail } from "../../utils/validation";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { sendPasswordResetEmail } from "../../utils/email";
 import crypto from "crypto";
 
 export const forgotPassword = async (req: AuthRequest, res: Response) => {
@@ -34,11 +35,13 @@ export const forgotPassword = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    const resetUrl = `${process.env.FRONTEND_URL || "http://localhost:3001"}/reset-password?token=${token}`;
+    const toEmail = user.email!;
+
+    await sendPasswordResetEmail(toEmail, user.name || "User", resetUrl);
+
     res.json({
       message: "If email exists, password reset link has been sent",
-      resetToken: token,
-      resetUrl: `${process.env.FRONTEND_URL || "http://localhost:3001"}/reset-password?token=${token}`,
-      expiresAt,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Forgot Password");

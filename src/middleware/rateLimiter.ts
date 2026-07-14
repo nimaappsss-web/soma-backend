@@ -5,7 +5,7 @@ const standardMessage = (retryAfter: number) => ({
   error: `Too many attempts. Try again in ${Math.ceil(retryAfter / 60)} minute(s).`,
 });
 
-const defaults = { standardHeaders: true, legacyHeaders: false, validate: { xForwardedForHeader: false, default: true } as const };
+const defaults = { standardHeaders: true, legacyHeaders: false, validate: { xForwardedForHeader: false, default: false } as const };
 
 export const loginLimiter = rateLimit({
   ...defaults,
