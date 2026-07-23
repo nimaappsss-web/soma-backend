@@ -17,6 +17,13 @@ import {
   resetPassword,
   completeRegistration,
   acceptParentInvite,
+  updateProfile,
+  verifyLoginOtp,
+  checkIdentifier,
+  startRegistration,
+  verifyRegistrationOtp,
+  completeProfile,
+  googleAuth,
 } from "../controllers/authController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
 import {
@@ -60,6 +67,88 @@ const router = Router();
  *       201:
  *         description: Principal registered successfully
  */
+router.post("/start-registration", sendOtpLimiter, startRegistration);
+
+/**
+ * @swagger
+ * /api/auth/verify-registration-otp:
+ *   post:
+ *     summary: Verify email OTP during registration (returns registration token)
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, code]
+ *             properties:
+ *               email:
+ *                 type: string
+ *               code:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Email verified
+ */
+router.post("/verify-registration-otp", verifyRegistrationOtp);
+
+/**
+ * @swagger
+ * /api/auth/complete-profile:
+ *   post:
+ *     summary: Complete profile after email verification (creates user, returns tokens)
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [registrationToken, name, phone, password]
+ *             properties:
+ *               registrationToken:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Profile created, tokens returned
+ */
+router.post("/complete-profile", completeProfile);
+
+/**
+ * @swagger
+ * /api/auth/google:
+ *   post:
+ *     summary: Sign up or log in with Google
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [idToken]
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *               deviceId:
+ *                 type: string
+ *               deviceName:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       201:
+ *         description: Account created
+ */
+router.post("/google", googleAuth);
+
 router.post("/register-principal", registerPrincipalLimiter, registerPrincipal);
 
 /**
@@ -85,7 +174,10 @@ router.post("/register-principal", registerPrincipalLimiter, registerPrincipal);
  *               lga:
  *                 type: string
  *               schoolType:
- *                 type: string
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [creche, kg, primary, secondary]
  *               logoUrl:
  *                 type: string
  *     responses:
@@ -129,6 +221,7 @@ router.post("/register-school", authenticateToken, requireAdmin(), registerSchoo
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
+router.post("/check-identifier", checkIdentifier);
 router.post("/login", loginLimiter, login);
 
 /**
@@ -215,6 +308,7 @@ router.post("/logout", logout);
  *               $ref: '#/components/schemas/Error'
  */
 router.get("/me", authenticateToken, me);
+router.patch("/me", authenticateToken, updateProfile);
 
 /**
  * @swagger
@@ -503,6 +597,36 @@ router.post("/verify-otp", verifyOtpLimiter, verifyOTP);
  *         description: Email verified, returns user + tokens
  */
 router.post("/verify-email-otp", verifyOtpLimiter, verifyEmailOtp);
+
+/**
+ * @swagger
+ * /api/auth/verify-login-otp:
+ *   post:
+ *     summary: Verify OTP and login (returns tokens + user data like password login)
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [identifier, code, deviceId]
+ *             properties:
+ *               identifier:
+ *                 type: string
+ *                 description: Email or phone number
+ *               code:
+ *                 type: string
+ *                 description: 6-digit OTP code
+ *               deviceId:
+ *                 type: string
+ *               deviceName:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful, returns user + tokens
+ */
+router.post("/verify-login-otp", verifyOtpLimiter, verifyLoginOtp);
 
 /**
  * @swagger

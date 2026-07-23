@@ -149,6 +149,8 @@ export const verifyEmailOtp = async (req: AuthRequest, res: Response) => {
         schoolName: user.school?.name || null,
         emailVerified: user.emailVerified,
         hasSchool: !!user.schoolId,
+        needsSchoolSetup: user.role === "PRINCIPAL" && !user.schoolId,
+        needsPhoneSetup: !user.phone,
         needsRegistration,
       },
       accessToken,

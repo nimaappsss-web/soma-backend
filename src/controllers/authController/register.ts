@@ -65,7 +65,7 @@ export const register = async (req: AuthRequest, res: Response) => {
         address: "",
         state,
         lga,
-        schoolType,
+        schoolType: JSON.stringify(schoolType || ["primary"]),
         arms: arms ? JSON.stringify(arms) : undefined,
         logo: logoUrl || null,
       },

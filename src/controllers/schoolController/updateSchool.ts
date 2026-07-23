@@ -20,12 +20,17 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: "School not found" });
     }
 
-    if (arms !== undefined) {
+    if (arms !== undefined || schoolType !== undefined) {
       const studentCount = await prisma.student.count({
         where: { schoolId: req.user.schoolId },
       });
       if (studentCount > 0) {
-        return res.status(400).json({ error: "Cannot change arms after students have been registered" });
+        if (arms !== undefined) {
+          return res.status(400).json({ error: "Cannot change arms after students have been registered" });
+        }
+        if (schoolType !== undefined) {
+          return res.status(400).json({ error: "Cannot change school type after students have been registered" });
+        }
       }
     }
 
@@ -36,7 +41,7 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
         ...(address !== undefined ? { address } : {}),
         ...(state !== undefined ? { state } : {}),
         ...(lga !== undefined ? { lga } : {}),
-        ...(schoolType !== undefined ? { schoolType } : {}),
+        ...(schoolType !== undefined ? { schoolType: JSON.stringify(schoolType) } : {}),
         ...(logo !== undefined ? { logo } : {}),
         ...(arms !== undefined ? { arms: JSON.stringify(arms) } : {}),
         ...(admissionPattern !== undefined ? { admissionPattern: /\d/.test(admissionPattern) ? exampleToPattern(admissionPattern) : admissionPattern } : {}),
@@ -55,7 +60,7 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    res.json({ school: { ...updated, arms: JSON.parse(updated.arms) } });
+    res.json({ school: { ...updated, schoolType: JSON.parse(updated.schoolType), arms: JSON.parse(updated.arms) } });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Update School");
     res.status(errorResponse.status).json(errorResponse);

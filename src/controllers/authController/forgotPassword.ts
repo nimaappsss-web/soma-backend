@@ -35,10 +35,7 @@ export const forgotPassword = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    const resetUrl = `${process.env.FRONTEND_URL || "http://localhost:3001"}/reset-password?token=${token}`;
-    const toEmail = user.email!;
-
-    await sendPasswordResetEmail(toEmail, user.name || "User", resetUrl);
+    await sendPasswordResetEmail(user.email!, user.name || "User", token);
 
     res.json({
       message: "If email exists, password reset link has been sent",

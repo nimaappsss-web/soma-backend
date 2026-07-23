@@ -64,7 +64,6 @@ export const bulkAttendance = async (req: AuthRequest, res: Response) => {
           id: true,
           studentId: true,
           status: true,
-          remarks: true,
         },
       });
 

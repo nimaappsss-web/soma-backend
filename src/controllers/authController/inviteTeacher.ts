@@ -81,11 +81,8 @@ export const inviteTeacher = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    const frontendUrl = process.env.FRONTEND_URL || "https://soma-frontend-zeta.vercel.app";
-    const inviteLink = `${frontendUrl}/verify-teacher?token=${token}&schoolId=${school.id}`;
-
     try {
-      await sendTeacherInviteEmail(teacherEmail, school.name, inviteLink);
+      await sendTeacherInviteEmail(teacherEmail, school.name, token);
     } catch (err: any) {
       console.error("Failed to send invite email:", err?.message || err);
     }

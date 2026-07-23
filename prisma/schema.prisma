@@ -18,7 +18,7 @@ model School {
   address           String
   state             String
   lga               String
-  schoolType        String   @default("secondary") // "creche", "kindergarten", "primary", "secondary", "both"
+  schoolType        String   @default("[\"primary\"]") // JSON string array: ["creche", "kg", "primary", "secondary"]
   logo              String?
   admissionPattern  String   @default("{year}/{seq}")
   admissionCounter  Int      @default(1)

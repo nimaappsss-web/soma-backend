@@ -11,7 +11,7 @@ const SUBJECTS_BY_TYPE: Record<string, { name: string; code: string }[]> = {
     { name: "Story Time", code: "STO" },
     { name: "Outdoor Play", code: "OUT" },
   ],
-  kindergarten: [
+  kg: [
     { name: "Literacy", code: "LIT" },
     { name: "Numeracy", code: "NUM" },
     { name: "Creative Arts", code: "CRE" },
@@ -45,27 +45,6 @@ const SUBJECTS_BY_TYPE: Record<string, { name: string; code: string }[]> = {
     { name: "Government", code: "GOV" },
     { name: "History", code: "HIS" },
   ],
-  both: [
-    { name: "Mathematics", code: "MTH" },
-    { name: "English Language", code: "ENG" },
-    { name: "Basic Science", code: "BSC" },
-    { name: "Social Studies", code: "SST" },
-    { name: "Civic Education", code: "CIV" },
-    { name: "Creative Arts", code: "CRE" },
-    { name: "Physical Education", code: "PHE" },
-    { name: "Computer Studies", code: "CMP" },
-    { name: "Religious Studies", code: "REL" },
-    { name: "Home Economics", code: "HME" },
-    { name: "Agricultural Science", code: "AGR" },
-    { name: "Physics", code: "PHY" },
-    { name: "Chemistry", code: "CHM" },
-    { name: "Biology", code: "BIO" },
-    { name: "Further Mathematics", code: "FURM" },
-    { name: "Economics", code: "ECO" },
-    { name: "Literature in English", code: "LIT" },
-    { name: "Government", code: "GOV" },
-    { name: "History", code: "HIS" },
-  ],
 };
 
 export const listSubjects = async (req: AuthRequest, res: Response) => {
@@ -86,18 +65,20 @@ export const listSubjects = async (req: AuthRequest, res: Response) => {
         select: { schoolType: true },
       });
 
-      const type = school?.schoolType || "secondary";
-      const subjects = SUBJECTS_BY_TYPE[type] || SUBJECTS_BY_TYPE.secondary;
+      const types: string[] = school?.schoolType ? JSON.parse(school.schoolType) : ["primary"];
+      const subjects = [...new Set(types.flatMap((t) => SUBJECTS_BY_TYPE[t] || []))];
 
-      await prisma.subject.createMany({
-        data: subjects.map((s) => ({
-          schoolId,
-          name: s.name,
-          code: s.code,
-        })),
-      });
+      if (subjects.length > 0) {
+        await prisma.subject.createMany({
+          data: subjects.map((s) => ({
+            schoolId,
+            name: s.name,
+            code: s.code,
+          })),
+        });
+      }
     }
-
+    
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
     const skip = (page - 1) * limit;

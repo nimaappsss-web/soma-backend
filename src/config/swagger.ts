@@ -38,7 +38,7 @@ const options: swaggerJsdoc.Options = {
             name: { type: "string" },
             state: { type: "string" },
             lga: { type: "string" },
-            schoolType: { type: "string", enum: ["creche", "kindergarten", "primary", "secondary", "both"] },
+            schoolType: { type: "string", description: "JSON string array: e.g. [\"primary\",\"secondary\"]" },
           },
         },
         User: {

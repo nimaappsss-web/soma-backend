@@ -47,11 +47,8 @@ export const resendParentInvite = async (req: AuthRequest, res: Response) => {
       data: { token: newToken, expiresAt, emailFailed: false, emailError: null },
     });
 
-    const frontendUrl = process.env.FRONTEND_URL || "https://soma-frontend-zeta.vercel.app";
-    const link = `${frontendUrl}/parent/setup?token=${newToken}&email=${encodeURIComponent(invite.invitedEmail)}`;
-
     // Fire-and-forget
-    trySendParentEmail(invite.invitedEmail, school.name, invite.invitedName || "Parent", "your child", link).then(
+    trySendParentEmail(invite.invitedEmail, school.name, invite.invitedName || "Parent", "your child", newToken).then(
       (result) => {
         if (!result.ok) {
           prisma.inviteToken.update({

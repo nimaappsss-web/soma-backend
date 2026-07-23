@@ -41,12 +41,12 @@ export const sendWelcomeEmail = async (to: string, name: string) => {
 export const sendTeacherInviteEmail = async (
   to: string,
   schoolName: string,
-  link: string,
+  token: string,
 ) => {
   await sendViaSendGrid(
     to,
     `You're Invited to Join ${schoolName} on Nima`,
-    teacherInviteHtml(schoolName, link),
+    teacherInviteHtml(schoolName, token),
   );
 };
 
@@ -55,14 +55,14 @@ export const sendParentInviteEmail = async (
   schoolName: string,
   parentName: string,
   studentName: string,
-  link: string,
+  token: string,
 ) => {
   if (process.env.DISABLE_EMAILS) return;
 
   await sendViaSendGrid(
     to,
     `Your child has been registered at ${schoolName}`,
-    parentInviteHtml(schoolName, parentName, studentName, link),
+    parentInviteHtml(schoolName, parentName, studentName, token),
   );
 };
 
@@ -71,7 +71,7 @@ export const trySendParentEmail = async (
   schoolName: string,
   parentName: string,
   studentName: string,
-  link: string,
+  token: string,
 ): Promise<{ ok: boolean; error?: string }> => {
   if (process.env.DISABLE_EMAILS) return { ok: true };
 
@@ -79,7 +79,7 @@ export const trySendParentEmail = async (
     await sendViaSendGrid(
       to,
       `Your child has been registered at ${schoolName}`,
-      parentInviteHtml(schoolName, parentName, studentName, link),
+      parentInviteHtml(schoolName, parentName, studentName, token),
     );
     return { ok: true };
   } catch (err: any) {
@@ -102,13 +102,13 @@ export const sendEmailOtp = async (
 export const sendPasswordResetEmail = async (
   to: string,
   name: string,
-  link: string,
+  token: string,
 ) => {
   if (process.env.DISABLE_EMAILS) return;
 
   await sendViaSendGrid(
     to,
     "Reset Your Password — Nima",
-    passwordResetHtml(name, link),
+    passwordResetHtml(name, token),
   );
 };

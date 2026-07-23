@@ -9,7 +9,7 @@ export interface RegisterSchoolDto {
   schoolName: string;
   state: string;
   lga: string;
-  schoolType: "CRECHE" | "KINDERGARTEN" | "PRIMARY" | "SECONDARY" | "BOTH";
+  schoolType: string[];
   principalName: string;
   principalEmail?: string;
   principalPhone: string;

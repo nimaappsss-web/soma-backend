@@ -85,7 +85,6 @@ export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
 
     // --- Build invite data for valid, non-duplicate emails ---
     const now = Date.now();
-    const frontendUrl = process.env.FRONTEND_URL || "https://soma-frontend-zeta.vercel.app";
 
     const inviteData = validTeachers
       .filter((t) => {
@@ -128,8 +127,7 @@ export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
     // --- Fire all emails concurrently (fire-and-forget errors) ---
     Promise.allSettled(
       createdInvites.map((inv) => {
-        const inviteLink = `${frontendUrl}/verify-teacher?token=${inv.token}&schoolId=${school.id}`;
-        return sendTeacherInviteEmail(inv.invitedEmail!, school.name, inviteLink).catch((err) => {
+        return sendTeacherInviteEmail(inv.invitedEmail!, school.name, inv.token).catch((err) => {
           console.error("Failed to send invite email:", err?.message || err);
         });
       }),

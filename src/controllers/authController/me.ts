@@ -16,6 +16,7 @@ export const me = async (req: AuthRequest, res: Response) => {
         name: true,
         email: true,
         phone: true,
+        image: true,
         role: true,
         active: true,
         passwordHash: true,
@@ -34,12 +35,15 @@ export const me = async (req: AuthRequest, res: Response) => {
       name: user.name,
       email: user.email,
       phone: user.phone,
+      image: user.image,
       role: user.role,
       active: user.active,
       needsRegistration: !user.passwordHash,
+      needsSchoolSetup: user.role === "PRINCIPAL" && !user.schoolId,
+      needsPhoneSetup: !user.phone,
       emailVerified: user.emailVerified,
       schoolId: user.schoolId,
-      school: user.school ? { ...user.school, arms: JSON.parse(user.school.arms) } : null,
+      school: user.school ? { ...user.school, schoolType: JSON.parse(user.school.schoolType), arms: JSON.parse(user.school.arms) } : null,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Get User Profile");

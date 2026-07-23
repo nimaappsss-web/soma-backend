@@ -200,7 +200,6 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
       );
 
       if (emailParents.length > 0) {
-        const frontendUrl = process.env.FRONTEND_URL || "https://soma-frontend-zeta.vercel.app";
         const now = Date.now();
 
         // Create invite tokens in bulk (1 query) — no user created upfront
@@ -221,13 +220,12 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
           Promise.allSettled(
             inviteData.map((inv) => {
               const parent = emailParents.find((p) => p.parentEmail === inv.invitedEmail);
-              const link = `${frontendUrl}/parent/setup?token=${inv.token}&email=${encodeURIComponent(inv.invitedEmail)}`;
               return trySendParentEmail(
                 inv.invitedEmail,
                 school.name || "School",
                 inv.invitedName,
                 parent?.name || "Student",
-                link,
+                inv.token,
               ).then((result) => {
                 if (!result.ok) {
                   prisma.inviteToken

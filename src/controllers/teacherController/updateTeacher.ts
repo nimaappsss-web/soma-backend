@@ -10,7 +10,7 @@ export const updateTeacher = async (req: AuthRequest, res: Response) => {
     }
 
     const { id } = req.params;
-    const { name, email, phone, role, active, formClassId, updatedAt } = req.body;
+    const { name, email, phone, role, active, formClassId, image, updatedAt } = req.body;
 
     const teacher = await prisma.user.findFirst({
       where: {
@@ -46,6 +46,7 @@ export const updateTeacher = async (req: AuthRequest, res: Response) => {
         ...(role !== undefined ? { role } : {}),
         ...(active !== undefined ? { active } : {}),
         ...(formClassId !== undefined ? { formClassId } : {}),
+        ...(image !== undefined ? { image } : {}),
       },
       select: {
         id: true,
@@ -55,6 +56,7 @@ export const updateTeacher = async (req: AuthRequest, res: Response) => {
         role: true,
         active: true,
         formClassId: true,
+        image: true,
         createdAt: true,
         updatedAt: true,
       },

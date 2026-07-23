@@ -41,12 +41,9 @@ export const resendInvite = async (req: AuthRequest, res: Response) => {
       data: { token: newToken, expiresAt },
     });
 
-    const frontendUrl = process.env.FRONTEND_URL || "https://soma-frontend-zeta.vercel.app";
-    const inviteLink = `${frontendUrl}/verify-teacher?token=${newToken}&schoolId=${invite.schoolId}`;
-
     if (invite.invitedEmail) {
       try {
-        await sendTeacherInviteEmail(invite.invitedEmail, school.name, inviteLink);
+        await sendTeacherInviteEmail(invite.invitedEmail, school.name, newToken);
       } catch (err: any) {
         console.error("Failed to resend invite email:", err?.message || err);
       }

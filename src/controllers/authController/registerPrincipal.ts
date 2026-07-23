@@ -1,7 +1,5 @@
 import { Response } from "express";
-import crypto from "crypto";
 
-import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { validateEmail, validatePhoneNumber } from "../../utils/validation";
 import { hashPassword, validatePassword } from "../../utils/password";
 import { AuthRequest, RegisterPrincipalDto } from "../../types";
@@ -83,28 +81,6 @@ export const registerPrincipal = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    const tokenPayload = {
-      userId: principal.id,
-      schoolId: "",
-      role: principal.role,
-      email: principal.email || principal.phone || undefined,
-    };
-
-    const accessToken = generateAccessToken(tokenPayload);
-    const refreshToken = generateRefreshToken(tokenPayload);
-
-    await prisma.session.create({
-      data: {
-        userId: principal.id,
-        deviceId: req.body.deviceId || crypto.randomUUID(),
-        deviceType: "web",
-        deviceName: req.body.deviceName || "Web Browser",
-        refreshToken,
-        isPrimary: true,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    });
-
     res.status(201).json({
       message: "Principal registered successfully",
       user: {
@@ -116,10 +92,9 @@ export const registerPrincipal = async (req: AuthRequest, res: Response) => {
         image: principal.image,
         emailVerified: principal.emailVerified,
         hasSchool: !!principal.schoolId,
+        needsPhoneSetup: !principal.phone,
       },
       emailOtpSent,
-      accessToken,
-      refreshToken,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Principal Registration");

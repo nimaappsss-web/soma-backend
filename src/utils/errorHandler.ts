@@ -18,7 +18,7 @@ export const createErrorResponse = (
   });
 
   return {
-    error: message,
+    error: "An unexpected error occurred. Please try again.",
     status: defaultStatus,
     timestamp: new Date().toISOString(),
   };

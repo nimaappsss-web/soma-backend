@@ -33,6 +33,7 @@ export const getSchool = async (req: AuthRequest, res: Response) => {
       school: {
         ...school,
         arms: JSON.parse(school.arms),
+        schoolType: JSON.parse(school.schoolType),
       },
     });
   } catch (error) {
