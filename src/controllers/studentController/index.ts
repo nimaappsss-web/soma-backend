@@ -6,3 +6,7 @@ export { updateStudent } from "./updateStudent";
 export { generateAdmission } from "./generateAdmission";
 export { reserveBatch } from "./reserveBatch";
 export { resendParentInvite } from "./resendParentInvite";
+export { studentStats } from "./studentStats";
+export { studentTimeline } from "./studentTimeline";
+export { studentMonthlyAttendance } from "./studentMonthlyAttendance";
+export { studentAcademics } from "./studentAcademics";

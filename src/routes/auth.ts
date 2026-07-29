@@ -24,6 +24,7 @@ import {
   verifyRegistrationOtp,
   completeProfile,
   googleAuth,
+  changePassword,
 } from "../controllers/authController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
 import {
@@ -670,5 +671,7 @@ router.post("/verify-login-otp", verifyOtpLimiter, verifyLoginOtp);
  *         description: Validation error
  */
 router.post("/complete-registration", authenticateToken, completeRegistration);
+
+router.post("/change-password", authenticateToken, changePassword);
 
 export default router;

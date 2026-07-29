@@ -22,3 +22,4 @@ export { startRegistration } from "./startRegistration";
 export { verifyRegistrationOtp } from "./verifyRegistrationOtp";
 export { completeProfile } from "./completeProfile";
 export { googleAuth } from "./googleAuth";
+export { changePassword } from "./changePassword";

@@ -11,24 +11,8 @@ export const studentDetails = async (req: AuthRequest, res: Response) => {
 
     const student = await prisma.student.findFirst({
       where: { id: req.params.id, schoolId: req.user.schoolId },
-      select: {
-        id: true,
-        name: true,
-        admissionNo: true,
-        classId: true,
-        gender: true,
-        dateOfBirth: true,
-        address: true,
-        imageUrl: true,
-        parentName: true,
-        parentPhone: true,
-        parentEmail: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-        syncStatus: true,
-        syncedAt: true,
-        version: true,
+      include: {
+        class: { select: { id: true, name: true, formTeachers: { select: { id: true, name: true, email: true, phone: true }, take: 1 } } },
       },
     });
 
@@ -36,7 +20,31 @@ export const studentDetails = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: "Student not found" });
     }
 
-    res.json({ student });
+    const formTeacher = student.class.formTeachers[0] || null;
+
+    res.json({
+      student: {
+        id: student.id,
+        name: student.name,
+        admissionNo: student.admissionNo,
+        classId: student.classId,
+        className: student.class.name,
+        gender: student.gender,
+        dateOfBirth: student.dateOfBirth,
+        address: student.address,
+        imageUrl: student.imageUrl,
+        parentName: student.parentName,
+        parentPhone: student.parentPhone,
+        parentEmail: student.parentEmail,
+        status: student.status,
+        createdAt: student.createdAt,
+        currentClassTeacher: formTeacher ? {
+          name: formTeacher.name,
+          email: formTeacher.email,
+          phone: formTeacher.phone || null,
+        } : null,
+      },
+    });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Student Details");
     res.status(errorResponse.status).json(errorResponse);

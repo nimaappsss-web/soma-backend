@@ -25,6 +25,7 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
 
     const subject = await prisma.subject.create({
       data: {
+        id: req.body.id || undefined,
         schoolId: req.user.schoolId,
         name,
         code: code || null,

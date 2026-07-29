@@ -140,6 +140,7 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
       localAdmissionSet.add(admissionNo);
 
       toCreate.push({
+        id: s.id || undefined,
         schoolId,
         classId: actualClassId,
         name: s.name,

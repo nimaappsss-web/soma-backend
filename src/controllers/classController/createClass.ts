@@ -25,6 +25,7 @@ export const createClass = async (req: AuthRequest, res: Response) => {
 
     const newClass = await prisma.class.create({
       data: {
+        id: req.body.id || undefined,
         schoolId: req.user.schoolId,
         name,
         level,

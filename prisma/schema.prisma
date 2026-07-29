@@ -28,11 +28,22 @@ model School {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  users     User[]
-  classes   Class[]
-  subjects  Subject[]
-  students  Student[]
-  principal User?     @relation("SchoolPrincipal", fields: [principalId], references: [id], onDelete: SetNull)
+  users              User[]
+  classes            Class[]
+  subjects           Subject[]
+  students           Student[]
+  academicTerms      AcademicTerm[]
+  holidays           Holiday[]
+  examSessions       ExamSession[]
+  staff              Staff[]
+  timetableEntries   TimetableEntry[]
+  announcements      Announcement[]
+  calendarEvents     CalendarEvent[]
+  feeStructures      FeeStructure[]
+  invoices           Invoice[]
+  payments           Payment[]
+  reports            Report[]
+  principal          User?     @relation("SchoolPrincipal", fields: [principalId], references: [id], onDelete: SetNull)
 
   @@index([principalId])
 }
@@ -61,6 +72,7 @@ model User {
   inviteTokens      InviteToken[]
   resetTokens       PasswordResetToken[]
   sessions          Session[]
+  timetableEntries  TimetableEntry[]
 
   @@index([schoolId])
   @@index([role])
@@ -205,6 +217,8 @@ model Class {
   students         Student[]
   assignmentLinks  TeacherAssignmentClass[]
   formTeachers     User[]
+  timetableEntries TimetableEntry[]
+  feeStructures    FeeStructure[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -227,6 +241,8 @@ model Subject {
   // Relations
   school      School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   assignments TeacherAssignment[]
+  examSessions ExamSession[]
+  timetableEntries TimetableEntry[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -261,6 +277,10 @@ model Student {
   school            School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   class             Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
   attendanceRecords Attendance[]
+  timeline          StudentTimeline[]
+  examScores        ExamScore[]
+  invoices          Invoice[]
+  payments          Payment[]
 
   @@unique([schoolId, admissionNo])
   @@index([schoolId])
@@ -295,4 +315,266 @@ model Attendance {
   @@index([classId])
   @@index([date])
   @@index([syncStatus])
+}
+
+// ============= ACADEMIC TERMS =============
+
+model AcademicTerm {
+  id        String   @id @default(cuid())
+  schoolId  String
+  term      String   // "1", "2", "3"
+  session   String   // "2025/2026"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, term, session])
+  @@index([schoolId])
+}
+
+// ============= HOLIDAYS =============
+
+model Holiday {
+  id        String   @id @default(cuid())
+  schoolId  String
+  date      DateTime // date only, no time component
+  reason    String   // "Democracy Day", "Mid-term break"
+  createdBy String   // principal userId
+  createdAt DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, date])
+  @@index([schoolId])
+  @@index([schoolId, date])
+}
+
+// ============= STUDENT TIMELINE =============
+
+model StudentTimeline {
+  id          String   @id @default(cuid())
+  studentId   String
+  type        String   // ADMISSION, PROMOTION, STATUS_CHANGE, CLASS_TRANSFER
+  description String
+  date        DateTime
+  createdAt   DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+}
+
+// ============= EXAMINATIONS =============
+
+model ExamSession {
+  id        String   @id @default(cuid())
+  schoolId  String
+  subjectId String
+  name      String
+  type      String   // QUIZ, TEST, ASSIGNMENT, PROJECT, EXAM
+  term      String
+  session   String
+  maxScore  Int      @default(100)
+  date      DateTime
+  status    String   @default("DRAFT") // DRAFT, PUBLISHED, COMPLETED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  scores  ExamScore[]
+
+  @@index([schoolId])
+  @@index([subjectId])
+  @@index([term, session])
+}
+
+model ExamScore {
+  id        String   @id @default(cuid())
+  examId    String
+  studentId String
+  score     Float
+  remarks   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exam    ExamSession @relation(fields: [examId], references: [id], onDelete: Cascade)
+  student Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, studentId])
+  @@index([examId])
+  @@index([studentId])
+}
+
+// ============= NON-TEACHING STAFF =============
+
+model Staff {
+  id          String   @id @default(cuid())
+  schoolId    String
+  name        String
+  email       String?
+  phone       String?
+  gender      String?
+  role        String
+  department  String?
+  designation String?
+  status      String   @default("INVITED") // ACTIVE, INVITED, INACTIVE
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+}
+
+// ============= TIMETABLE =============
+
+model TimetableEntry {
+  id        String   @id @default(cuid())
+  schoolId  String
+  classId   String
+  subjectId String
+  teacherId String
+  day       String   // MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY
+  period    Int
+  startTime String
+  endTime   String
+  room      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, classId, day, period])
+  @@index([schoolId])
+  @@index([classId])
+  @@index([teacherId])
+}
+
+// ============= ANNOUNCEMENTS =============
+
+model Announcement {
+  id        String   @id @default(cuid())
+  schoolId  String
+  title     String
+  message   String
+  audience  String   // ALL_STAFF, TEACHING_ONLY, NON_TEACHING_ONLY, ALL_PARENTS, ALL_USERS
+  priority  String   @default("NORMAL") // NORMAL, IMPORTANT, URGENT
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([audience])
+}
+
+// ============= CALENDAR EVENTS =============
+
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  schoolId    String
+  title       String
+  description String?
+  date        DateTime
+  type        String   // HOLIDAY, EVENT, EXAM, MEETING, SPORTS
+  audience    String   @default("ALL") // ALL, TEACHERS, PARENTS, STAFF
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([date])
+}
+
+// ============= FINANCE =============
+
+model FeeStructure {
+  id           String   @id @default(cuid())
+  schoolId     String
+  classId      String
+  term         String
+  session      String
+  name         String
+  amount       Float
+  isCompulsory Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class    Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@index([schoolId])
+  @@index([classId])
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  schoolId        String
+  studentId       String
+  feeStructureId  String
+  amount          Float
+  status          String   @default("UNPAID") // UNPAID, PARTIAL, PAID
+  dueDate         DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  feeStructure FeeStructure  @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
+  payments     Payment[]
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([status])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  schoolId  String
+  invoiceId String
+  studentId String
+  amount    Float
+  method    String   // CASH, TRANSFER, POS, ONLINE
+  reference String?
+  recordedBy String
+  createdAt DateTime @default(now())
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([invoiceId])
+  @@index([studentId])
+}
+
+// ============= REPORTS =============
+
+model Report {
+  id          String   @id @default(cuid())
+  schoolId    String
+  classId     String
+  term        String
+  session     String
+  type        String   // REPORT_CARD, CLASS_SUMMARY, ATTENDANCE, FULL
+  status      String   @default("PENDING") // PENDING, GENERATED, FAILED
+  downloadUrl String?
+  generatedBy String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
 }

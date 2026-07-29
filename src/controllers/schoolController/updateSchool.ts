@@ -20,20 +20,6 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: "School not found" });
     }
 
-    if (arms !== undefined || schoolType !== undefined) {
-      const studentCount = await prisma.student.count({
-        where: { schoolId: req.user.schoolId },
-      });
-      if (studentCount > 0) {
-        if (arms !== undefined) {
-          return res.status(400).json({ error: "Cannot change arms after students have been registered" });
-        }
-        if (schoolType !== undefined) {
-          return res.status(400).json({ error: "Cannot change school type after students have been registered" });
-        }
-      }
-    }
-
     const updated = await prisma.school.update({
       where: { id: req.user.schoolId },
       data: {

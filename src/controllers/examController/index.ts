@@ -1,0 +1,9 @@
+export { listExams } from "./listExams";
+export { createExam } from "./createExam";
+export { examDetails } from "./examDetails";
+export { updateExam } from "./updateExam";
+export { deleteExam } from "./deleteExam";
+export { getExamScores } from "./getExamScores";
+export { submitExamScores } from "./submitExamScores";
+export { getStudentExamScore } from "./getStudentExamScore";
+export { termResults } from "./termResults";

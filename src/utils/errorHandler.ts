@@ -13,12 +13,12 @@ export const createErrorResponse = (
 
   console.error(`[${context}] Error:`, {
     message,
-    error,
+    error: error instanceof Error ? error.stack : error,
     timestamp: new Date().toISOString(),
   });
 
   return {
-    error: "An unexpected error occurred. Please try again.",
+    error: process.env.NODE_ENV === "production" ? "An unexpected error occurred. Please try again." : message,
     status: defaultStatus,
     timestamp: new Date().toISOString(),
   };

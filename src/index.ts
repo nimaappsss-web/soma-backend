@@ -9,8 +9,21 @@ import classRoutes from "./routes/classes";
 import studentRoutes from "./routes/students";
 import schoolRoutes from "./routes/school";
 import attendanceRoutes from "./routes/attendance";
+import resultsRoutes from "./routes/results";
 import parentRoutes from "./routes/parents";
 import lessonNoteRoutes from "./routes/lessonNotes";
+import academicTermRoutes from "./routes/academicTerms";
+import holidayRoutes from "./routes/holidays";
+import dashboardRoutes from "./routes/dashboard";
+import examRoutes from "./routes/exams";
+import staffRoutes from "./routes/staff";
+import timetableRoutes from "./routes/timetable";
+import announcementRoutes from "./routes/announcements";
+import calendarRoutes from "./routes/calendar";
+import financeRoutes from "./routes/finance";
+import reportRoutes from "./routes/reports";
+import celebrationRoutes from "./routes/celebrations";
+import analyticsRoutes from "./routes/analytics";
 
 import express, { Express, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -34,8 +47,21 @@ app.use("/api/classes", classRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/school", schoolRoutes);
 app.use("/api/attendance", attendanceRoutes);
+app.use("/api/results", resultsRoutes);
 app.use("/api/parents", parentRoutes);
 app.use("/api/lesson-notes", lessonNoteRoutes);
+app.use("/api/academic-terms", academicTermRoutes);
+app.use("/api/holidays", holidayRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/exams", examRoutes);
+app.use("/api/staff", staffRoutes);
+app.use("/api/timetable", timetableRoutes);
+app.use("/api/announcements", announcementRoutes);
+app.use("/api/calendar", calendarRoutes);
+app.use("/api/finance", financeRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/celebrations", celebrationRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 app.use(
   "/api-docs",

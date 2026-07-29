@@ -47,6 +47,7 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
 
     const student = await prisma.student.create({
       data: {
+        id: req.body.id || undefined,
         schoolId,
         classId,
         name,
