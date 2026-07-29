@@ -82,7 +82,7 @@ export const seedClasses = async (req: AuthRequest, res: Response) => {
       return res.json({ message: "All required classes already exist", classes: [] });
     }
 
-    await prisma.class.createMany({ data: toCreate });
+    await prisma.class.createMany({ data: toCreate, skipDuplicates: true });
 
     const created = await prisma.class.findMany({
       where: { schoolId: req.user.schoolId, name: { in: toCreate.map((c) => c.name) } },

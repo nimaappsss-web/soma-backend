@@ -9,7 +9,7 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { name, code } = req.body;
+    const { name, code, active } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: "Subject name is required" });
@@ -29,6 +29,7 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
         schoolId: req.user.schoolId,
         name,
         code: code || null,
+        ...(active !== undefined ? { active } : {}),
       },
     });
 

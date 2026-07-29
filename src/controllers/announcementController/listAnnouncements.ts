@@ -15,7 +15,18 @@ export const listAnnouncements = async (req: AuthRequest, res: Response) => {
     const skip = (page - 1) * limit;
 
     const where: any = { schoolId: req.user.schoolId };
-    if (audience) where.audience = audience;
+
+    const role = req.user.role;
+    if (!audience) {
+      if (role === "TEACHER" || role === "BURSAR") {
+        where.audience = { in: ["ALL_USERS", "ALL_STAFF", "TEACHING_ONLY"] };
+      } else if (role === "PARENT") {
+        where.audience = { in: ["ALL_USERS", "ALL_PARENTS"] };
+      }
+    } else {
+      where.audience = audience;
+    }
+
     if (priority) where.priority = priority;
 
     const [announcements, total] = await Promise.all([

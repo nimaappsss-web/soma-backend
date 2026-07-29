@@ -15,6 +15,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
       where: { id: req.params.id, schoolId: req.user.schoolId },
       select: {
         id: true,
+        classId: true,
         updatedAt: true,
         admissionNo: true,
       },
@@ -36,6 +37,8 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
         });
       }
     }
+
+    const oldClassId = student.classId;
 
     const updated = await prisma.student.update({
       where: { id: req.params.id },
@@ -71,6 +74,24 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
         version: true,
       },
     });
+
+    // Log class transfer to timeline
+    if (classId !== undefined && classId !== oldClassId) {
+      const [oldClass, newClass] = await Promise.all([
+        prisma.class.findUnique({ where: { id: oldClassId }, select: { name: true } }),
+        prisma.class.findUnique({ where: { id: classId }, select: { name: true } }),
+      ]);
+      const oldName = oldClass?.name || "Unknown";
+      const newName = newClass?.name || "Unknown";
+      await prisma.studentTimeline.create({
+        data: {
+          studentId: updated.id,
+          type: "CLASS_TRANSFER",
+          description: `Moved from ${oldName} to ${newName}`,
+          date: new Date(),
+        },
+      });
+    }
 
     res.json({ student: updated });
   } catch (error) {

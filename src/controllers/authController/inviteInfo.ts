@@ -26,10 +26,16 @@ export const inviteInfo = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "This invite link has expired" });
     }
 
+    const school = await prisma.school.findUnique({
+      where: { id: inviteToken.schoolId },
+      select: { name: true },
+    });
+
     res.json({
       email: inviteToken.invitedEmail,
       role: inviteToken.role,
       schoolId: inviteToken.schoolId,
+      schoolName: school?.name || null,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Invite Info");

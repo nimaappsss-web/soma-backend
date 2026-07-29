@@ -230,6 +230,7 @@ model Subject {
   schoolId  String
   name      String // Mathematics, English, Biology, etc
   code      String? // MATH, ENG, BIO, etc
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

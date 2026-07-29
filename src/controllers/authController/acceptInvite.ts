@@ -5,10 +5,12 @@ import { validateEmail } from "../../utils/validation";
 import { hashPassword, validatePassword } from "../../utils/password";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { sendEmailOtp } from "../../utils/email";
+import { generateOTP } from "../../utils/tokens";
 
 export const acceptInvite = async (req: AuthRequest, res: Response) => {
   try {
-    const { token, name, password, formClassId, assignments } = req.body;
+    const { token, name, phone, password, formClassId, assignments } = req.body;
 
     if (!token) {
       return res.status(400).json({ error: "Token is required" });
@@ -39,9 +41,9 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "This invite link has expired" });
     }
 
-    const email = inviteToken.invitedEmail;
+    const email = inviteToken.invitedEmail || req.body.email;
     if (!email) {
-      return res.status(400).json({ error: "No email associated with this invite" });
+      return res.status(400).json({ error: "Email is required" });
     }
 
     const existingUser = await prisma.user.findFirst({
@@ -59,10 +61,11 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
         data: {
           name,
           email,
+          phone: phone || null,
           role: inviteToken.role,
           schoolId: inviteToken.schoolId,
           passwordHash,
-          emailVerified: true,
+          emailVerified: inviteToken.invitedEmail ? true : false,
           active: true,
           formClassId: formClassId || null,
         },
@@ -71,10 +74,12 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
         },
       });
 
-      await tx.inviteToken.update({
-        where: { id: inviteToken.id },
-        data: { usedAt: new Date(), usedBy: user.id },
-      });
+      if (inviteToken.invitedEmail) {
+        await tx.inviteToken.update({
+          where: { id: inviteToken.id },
+          data: { usedAt: new Date(), usedBy: user.id },
+        });
+      }
 
       if (assignments && Array.isArray(assignments)) {
         for (const assignment of assignments) {
@@ -105,6 +110,33 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
       return user;
     });
 
+    let emailVerified = !!inviteToken.invitedEmail;
+    if (!emailVerified) {
+      const verifiedOtp = await prisma.oTP.findFirst({
+        where: {
+          email,
+          verified: true,
+          createdAt: { gt: new Date(Date.now() - 10 * 60 * 1000) },
+        },
+      });
+      if (verifiedOtp) {
+        await prisma.user.update({
+          where: { id: result.id },
+          data: { emailVerified: true },
+        });
+        emailVerified = true;
+      } else {
+        try {
+          const code = generateOTP();
+          const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+          await prisma.oTP.create({ data: { email, code, expiresAt } });
+          await sendEmailOtp(email, name, code);
+        } catch (err: any) {
+          console.error("Failed to send verification email:", err?.message || err);
+        }
+      }
+    }
+
     const tokenPayload = {
       userId: result.id,
       schoolId: result.schoolId || undefined,
@@ -116,13 +148,15 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
     const refreshToken = generateRefreshToken(tokenPayload);
 
     res.status(201).json({
-      message: "Account created successfully",
+      message: emailVerified ? "Account created successfully" : "Account created. Please verify your email.",
       user: {
         id: result.id,
         name: result.name,
         email: result.email,
         role: result.role,
         schoolId: result.schoolId,
+        emailVerified,
+        active: result.active,
         formClassId: result.formClassId,
         formClass: result.formClass?.name || null,
       },

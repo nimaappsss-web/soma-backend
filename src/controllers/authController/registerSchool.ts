@@ -4,6 +4,7 @@ import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
+import { getSubjectsForSchool } from "../../data/subjects";
 
 export const registerSchool = async (req: AuthRequest, res: Response) => {
   try {
@@ -76,7 +77,15 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
       }
 
       if (classesToCreate.length > 0) {
-        await tx.class.createMany({ data: classesToCreate.map((c) => ({ ...c, schoolId: school.id })) });
+        await tx.class.createMany({ data: classesToCreate.map((c) => ({ ...c, schoolId: school.id })), skipDuplicates: true });
+      }
+
+      const subjects = getSubjectsForSchool(schoolTypes);
+      if (subjects.length > 0) {
+        await tx.subject.createMany({
+          data: subjects.map((s) => ({ schoolId: school.id, name: s.name, code: s.code })),
+          skipDuplicates: true,
+        });
       }
 
       const updatedUser = await tx.user.update({

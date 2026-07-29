@@ -44,6 +44,7 @@ export const listTeachers = async (req: AuthRequest, res: Response) => {
           role: { in: ["TEACHER", "BURSAR"] },
           usedAt: null,
           expiresAt: { gt: new Date() },
+          invitedEmail: { not: null },
         },
         select: {
           id: true,

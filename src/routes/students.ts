@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createStudent, bulkCreateStudents, listStudents, studentDetails, updateStudent, generateAdmission, reserveBatch, resendParentInvite, studentStats, studentTimeline, studentMonthlyAttendance, studentAcademics } from "../controllers/studentController";
+import { createStudent, bulkCreateStudents, listStudents, studentDetails, updateStudent, deleteStudent, bulkDeleteStudents, generateAdmission, reserveBatch, resendParentInvite, studentStats, studentTimeline, studentMonthlyAttendance, studentAcademics } from "../controllers/studentController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
 import { createStudentLimiter, bulkCreateStudentLimiter } from "../middleware/rateLimiter";
 
@@ -17,5 +17,7 @@ router.get("/:id/academics", authenticateToken, studentAcademics);
 router.get("/:id/attendance/monthly", authenticateToken, studentMonthlyAttendance);
 router.post("/", authenticateToken, requireAdmin(), createStudentLimiter, createStudent);
 router.patch("/:id", authenticateToken, requireAdmin(), updateStudent);
+router.delete("/bulk", authenticateToken, requireAdmin(), bulkDeleteStudents);
+router.delete("/:id", authenticateToken, requireAdmin(), deleteStudent);
 
 export default router;

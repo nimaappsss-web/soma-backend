@@ -4,9 +4,9 @@ import { authenticateToken, requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
-router.get("/", authenticateToken, requireAdmin(), listAnnouncements);
+router.get("/", authenticateToken, listAnnouncements);
 router.post("/", authenticateToken, requireAdmin(), createAnnouncement);
-router.get("/:id", authenticateToken, requireAdmin(), announcementDetails);
+router.get("/:id", authenticateToken, announcementDetails);
 router.patch("/:id", authenticateToken, requireAdmin(), updateAnnouncement);
 router.delete("/:id", authenticateToken, requireAdmin(), deleteAnnouncement);
 

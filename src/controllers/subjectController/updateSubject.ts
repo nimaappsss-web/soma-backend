@@ -9,7 +9,7 @@ export const updateSubject = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { name, code } = req.body;
+    const { name, code, active } = req.body;
 
     const subject = await prisma.subject.findFirst({
       where: { id: req.params.id, schoolId: req.user.schoolId },
@@ -33,8 +33,9 @@ export const updateSubject = async (req: AuthRequest, res: Response) => {
       data: {
         ...(name !== undefined ? { name } : {}),
         ...(code !== undefined ? { code: code || null } : {}),
+        ...(active !== undefined ? { active } : {}),
       },
-      select: { id: true, name: true, code: true, createdAt: true, updatedAt: true },
+      select: { id: true, name: true, code: true, active: true, createdAt: true, updatedAt: true },
     });
 
     res.json({ subject: updated });
