@@ -1,16 +1,46 @@
 import { Router } from "express";
-import { listExams, createExam, examDetails, updateExam, deleteExam, getExamScores, submitExamScores, getStudentExamScore } from "../controllers/examController";
+import {
+  listExams,
+  ensureExamSession,
+  createExam,
+  examDetails,
+  updateExam,
+  deleteExam,
+  getExamScores,
+  submitExamScores,
+  submitExamScoresBulk,
+  getExamScoresBulk,
+  submitStudentScore,
+  getStudentExamScore,
+  listScoreComponents,
+  createScoreComponent,
+  updateScoreComponent,
+  deleteScoreComponent,
+  copyScoreComponents,
+} from "../controllers/examController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
-router.get("/", authenticateToken, requireAdmin(), listExams);
+// Score scheme components (admin writes; teachers read the scheme)
+router.get("/components", authenticateToken, listScoreComponents);
+router.post("/components", authenticateToken, requireAdmin(), createScoreComponent);
+router.post("/components/copy", authenticateToken, requireAdmin(), copyScoreComponents);
+router.patch("/components/:id", authenticateToken, requireAdmin(), updateScoreComponent);
+router.delete("/components/:id", authenticateToken, requireAdmin(), deleteScoreComponent);
+
+// Assessments (admins full; teachers read + score entry for their assignments)
+router.get("/", authenticateToken, listExams);
 router.post("/", authenticateToken, requireAdmin(), createExam);
-router.get("/:id", authenticateToken, requireAdmin(), examDetails);
+router.post("/ensure", authenticateToken, ensureExamSession);
+router.post("/scores", authenticateToken, submitExamScoresBulk);
+router.get("/scores", authenticateToken, getExamScoresBulk);
+router.get("/:id", authenticateToken, examDetails);
 router.patch("/:id", authenticateToken, requireAdmin(), updateExam);
 router.delete("/:id", authenticateToken, requireAdmin(), deleteExam);
-router.get("/:id/scores", authenticateToken, requireAdmin(), getExamScores);
-router.post("/:id/scores", authenticateToken, requireAdmin(), submitExamScores);
-router.get("/:id/student/:studentId", authenticateToken, requireAdmin(), getStudentExamScore);
+router.get("/:id/scores", authenticateToken, getExamScores);
+router.post("/:id/scores", authenticateToken, submitExamScores);
+router.get("/:id/student/:studentId", authenticateToken, getStudentExamScore);
+router.put("/:id/student/:studentId", authenticateToken, submitStudentScore);
 
 export default router;

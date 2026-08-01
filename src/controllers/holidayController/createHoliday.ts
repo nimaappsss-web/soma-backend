@@ -16,7 +16,7 @@ export const createHoliday = async (req: AuthRequest, res: Response) => {
     }
 
     const holidayDate = new Date(date);
-    holidayDate.setHours(0, 0, 0, 0);
+    holidayDate.setUTCHours(0, 0, 0, 0);
 
     const existing = await prisma.holiday.findFirst({
       where: { schoolId: req.user.schoolId, date: holidayDate },

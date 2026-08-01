@@ -11,6 +11,10 @@ export const updateEvent = async (req: AuthRequest, res: Response) => {
 
     const { title, description, date, type, audience } = req.body;
 
+    if (type !== undefined && type === "HOLIDAY") {
+      return res.status(400).json({ error: "Holidays must be created via /api/holidays" });
+    }
+
     const event = await prisma.calendarEvent.findFirst({
       where: { id: req.params.id, schoolId: req.user.schoolId },
     });

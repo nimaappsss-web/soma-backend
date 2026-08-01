@@ -43,6 +43,8 @@ model School {
   invoices           Invoice[]
   payments           Payment[]
   reports            Report[]
+  scoreComponents    ScoreComponent[]
+  gradeScales        GradeScale[]
   principal          User?     @relation("SchoolPrincipal", fields: [principalId], references: [id], onDelete: SetNull)
 
   @@index([principalId])
@@ -219,6 +221,7 @@ model Class {
   formTeachers     User[]
   timetableEntries TimetableEntry[]
   feeStructures    FeeStructure[]
+  examSessions     ExamSession[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -318,22 +321,38 @@ model Attendance {
   @@index([syncStatus])
 }
 
+// ============= ATTENDANCE DAY NOTES =============
+
+model AttendanceNote {
+  id        String   @id @default(cuid())
+  schoolId  String
+  classId   String
+  date      DateTime
+  note      String
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classId, date])
+  @@index([schoolId])
+  @@index([classId])
+  @@index([date])
+}
+
 // ============= ACADEMIC TERMS =============
 
 model AcademicTerm {
   id        String   @id @default(cuid())
   schoolId  String
   term      String   // "1", "2", "3"
-  session   String   // "2025/2026"
   startDate DateTime
   endDate   DateTime
-  isCurrent Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
-  @@unique([schoolId, term, session])
+  @@unique([schoolId, term])
   @@index([schoolId])
 }
 
@@ -372,26 +391,65 @@ model StudentTimeline {
 // ============= EXAMINATIONS =============
 
 model ExamSession {
-  id        String   @id @default(cuid())
-  schoolId  String
-  subjectId String
-  name      String
-  type      String   // QUIZ, TEST, ASSIGNMENT, PROJECT, EXAM
-  term      String
-  session   String
-  maxScore  Int      @default(100)
-  date      DateTime
-  status    String   @default("DRAFT") // DRAFT, PUBLISHED, COMPLETED
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  schoolId    String
+  subjectId   String
+  classId     String?
+  componentId String?
+  name        String
+  type        String   // QUIZ, TEST, ASSIGNMENT, PROJECT, EXAM
+  term        String
+  session     String
+  maxScore    Int      @default(100)
+  date        DateTime
+  status      String   @default("DRAFT") // DRAFT, PUBLISHED, COMPLETED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  scores  ExamScore[]
+  school    School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  class     Class?          @relation(fields: [classId], references: [id], onDelete: SetNull)
+  component ScoreComponent? @relation(fields: [componentId], references: [id], onDelete: SetNull)
+  scores    ExamScore[]
 
   @@index([schoolId])
   @@index([subjectId])
+  @@index([classId])
+  @@index([componentId])
   @@index([term, session])
+}
+
+model ScoreComponent {
+  id        String   @id @default(cuid())
+  schoolId  String
+  term      String
+  session   String
+  name      String // "Test 1", "Assignment", "Exam", etc
+  type      String   @default("OTHER") // TEST, ASSIGNMENT, PROJECT, PRACTICAL, EXAM, PHYSICAL, OTHER
+  maxScore  Int      @default(100)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  examSessions ExamSession[]
+
+  @@unique([schoolId, term, session, name])
+  @@index([schoolId, term, session])
+}
+
+model GradeScale {
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String
+  bands     Json // [{ minScore, grade, remark }] sorted by minScore desc
+  levels    String[] @default([]) // class levels this scale applies to, e.g. ["JSS 1", "JSS 2"]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
 }
 
 model ExamScore {

@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { resolveSession } from "../../utils/academicTerm";
 
 export const createFeeStructure = async (req: AuthRequest, res: Response) => {
   try {
@@ -11,9 +12,11 @@ export const createFeeStructure = async (req: AuthRequest, res: Response) => {
 
     const { classId, term, session, name, amount, isCompulsory } = req.body;
 
-    if (!classId || !term || !session || !name || amount === undefined) {
-      return res.status(400).json({ error: "classId, term, session, name, and amount are required" });
+    if (!classId || !term || !name || amount === undefined) {
+      return res.status(400).json({ error: "classId, term, name, and amount are required" });
     }
+
+    const resolvedSession = await resolveSession(req.user.schoolId, term, session);
 
     const feeStructure = await prisma.feeStructure.create({
       data: {
@@ -21,7 +24,7 @@ export const createFeeStructure = async (req: AuthRequest, res: Response) => {
         schoolId: req.user.schoolId,
         classId,
         term,
-        session,
+        session: resolvedSession,
         name,
         amount,
         isCompulsory: isCompulsory !== false,

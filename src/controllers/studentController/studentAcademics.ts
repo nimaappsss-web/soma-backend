@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { resolveSession, normalizeTerm } from "../../utils/academicTerm";
 
 export const studentAcademics = async (req: AuthRequest, res: Response) => {
   try {
@@ -11,9 +12,11 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
 
     const { term, session } = req.query;
 
-    if (!term || !session) {
-      return res.status(400).json({ error: "term and session are required" });
+    if (!term) {
+      return res.status(400).json({ error: "term is required" });
     }
+
+    const resolvedSession = await resolveSession(req.user.schoolId, term as string, session as string | undefined);
 
     const student = await prisma.student.findFirst({
       where: { id: req.params.id, schoolId: req.user.schoolId },
@@ -28,7 +31,7 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
       prisma.examScore.findMany({
         where: {
           studentId: req.params.id,
-          exam: { schoolId: req.user.schoolId, term: term as string, session: session as string },
+          exam: { schoolId: req.user.schoolId, term: term as string, session: resolvedSession },
         },
         include: {
           exam: {
@@ -44,7 +47,7 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
         select: { status: true, date: true },
       }),
       prisma.academicTerm.findFirst({
-        where: { schoolId: req.user.schoolId, term: term as string, session: session as string },
+        where: { schoolId: req.user.schoolId, term: normalizeTerm(term as string) || (term as string) },
         select: { startDate: true, endDate: true },
       }),
     ]);
@@ -126,7 +129,7 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
       const allStudentScores = await prisma.examScore.groupBy({
         by: ["studentId"],
         where: {
-          exam: { schoolId: req.user.schoolId, term: term as string, session: session as string },
+          exam: { schoolId: req.user.schoolId, term: term as string, session: resolvedSession },
           student: { classId: student.classId },
         },
         _sum: { score: true },
@@ -140,7 +143,7 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
     res.json({
       studentId: req.params.id,
       term: term as string,
-      session: session as string,
+      session: resolvedSession,
       average,
       bestSubject,
       worstSubject,

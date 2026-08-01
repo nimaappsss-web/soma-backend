@@ -2,7 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
-import { exampleToPattern } from "../../utils/admission";
+import { exampleToPattern, generateAdmissionNo } from "../../utils/admission";
 
 const classMap: Record<string, { name: string; level: string }[]> = {
   creche: [{ name: "Creche", level: "Creche" }],
@@ -106,6 +106,34 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
 
     if (toCreate.length > 0) {
       await prisma.class.createMany({ data: toCreate, skipDuplicates: true });
+    }
+
+    if (admissionPattern !== undefined) {
+      const finalPattern = /\d/.test(admissionPattern) ? exampleToPattern(admissionPattern) : admissionPattern;
+
+      const students = await prisma.student.findMany({
+        where: { schoolId: req.user.schoolId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      });
+
+      if (students.length > 0) {
+        const updates = students.map((student, index) => {
+          const newAdmissionNo = generateAdmissionNo(finalPattern, index + 1);
+          return prisma.student.update({
+            where: { id: student.id },
+            data: { admissionNo: newAdmissionNo },
+          });
+        });
+
+        await prisma.$transaction([
+          ...updates,
+          prisma.school.update({
+            where: { id: req.user.schoolId },
+            data: { admissionCounter: students.length + 1 },
+          }),
+        ]);
+      }
     }
 
     res.json({ school: { ...updated, schoolType: JSON.parse(updated.schoolType), arms: JSON.parse(updated.arms) } });

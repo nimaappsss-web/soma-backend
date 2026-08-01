@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { resolveSession, normalizeTerm } from "../../utils/academicTerm";
 
 export const termResults = async (req: AuthRequest, res: Response) => {
   try {
@@ -11,11 +12,12 @@ export const termResults = async (req: AuthRequest, res: Response) => {
 
     const { classId, term, session } = req.query;
 
-    if (!classId || !term || !session) {
-      return res.status(400).json({ error: "classId, term, and session are required" });
+    if (!classId || !term) {
+      return res.status(400).json({ error: "classId and term are required" });
     }
 
     const schoolId = req.user.schoolId;
+    const resolvedSession = await resolveSession(schoolId, term as string, session as string | undefined);
 
     const classInfo = await prisma.class.findFirst({
       where: { id: classId as string, schoolId },
@@ -25,13 +27,28 @@ export const termResults = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: "Class not found" });
     }
 
+    const role = req.user.role;
+    const isAdmin = role === "PRINCIPAL" || role === "SCHOOL_ADMIN";
+
+    if (!isAdmin) {
+      const teacher = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { formClassId: true },
+      });
+      if (!teacher?.formClassId || teacher.formClassId !== classId) {
+        return res.status(403).json({
+          error: "Teachers can only view results for their own form class",
+        });
+      }
+    }
+
     const students = await prisma.student.findMany({
       where: { schoolId, classId: classId as string, status: "ACTIVE" },
       select: { id: true, name: true, admissionNo: true },
     });
 
     const subjects = await prisma.examSession.findMany({
-      where: { schoolId, term: term as string, session: session as string },
+      where: { schoolId, term: term as string, session: resolvedSession },
       include: { subject: { select: { id: true, name: true } } },
     });
 
@@ -41,7 +58,7 @@ export const termResults = async (req: AuthRequest, res: Response) => {
     }
 
     const examSessions = await prisma.examSession.findMany({
-      where: { schoolId, term: term as string, session: session as string },
+      where: { schoolId, term: term as string, session: resolvedSession },
       select: { id: true, subjectId: true, type: true },
     });
 
@@ -77,7 +94,7 @@ export const termResults = async (req: AuthRequest, res: Response) => {
     }
 
     const academicTerm = await prisma.academicTerm.findFirst({
-      where: { schoolId, term: term as string, session: session as string },
+      where: { schoolId, term: normalizeTerm(term as string) || (term as string) },
       select: { startDate: true, endDate: true },
     });
 
@@ -173,7 +190,7 @@ export const termResults = async (req: AuthRequest, res: Response) => {
       classId: classId as string,
       className: classInfo.name,
       term: term as string,
-      session: session as string,
+      session: resolvedSession,
       students: sorted,
     });
   } catch (error) {

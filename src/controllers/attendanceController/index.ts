@@ -4,5 +4,6 @@ export { studentAttendance } from "./studentAttendance";
 export { clearAttendance } from "./clearAttendance";
 export { attendanceSummary } from "./attendanceSummary";
 export { attendanceCalendar } from "./attendanceCalendar";
+export { attendanceAvailability } from "./attendanceAvailability";
 export { attendanceSummaryByClass } from "./attendanceSummaryByClass";
 export { attendanceSummaryByTeacher } from "./attendanceSummaryByTeacher";

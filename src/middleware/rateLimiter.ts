@@ -17,10 +17,10 @@ export const loginLimiter = rateLimit({
 
 export const sendOtpLimiter = rateLimit({
   ...defaults,
-  windowMs: 60 * 60 * 1000,
-  max: 3,
+  windowMs: 10 * 60 * 1000,
+  max: 5,
   keyGenerator: (req) => req.body?.phone || req.ip || "unknown",
-  message: standardMessage(60 * 60),
+  message: standardMessage(10 * 60),
 });
 
 export const verifyOtpLimiter = rateLimit({

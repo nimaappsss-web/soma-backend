@@ -15,6 +15,10 @@ export const createEvent = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "title, date, and type are required" });
     }
 
+    if (type === "HOLIDAY") {
+      return res.status(400).json({ error: "Holidays must be created via /api/holidays" });
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
       select: { id: true, name: true },

@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { classifySchoolDay } from "../../utils/attendanceAvailability";
 
 export const listAttendance = async (req: AuthRequest, res: Response) => {
   try {
@@ -22,12 +23,23 @@ export const listAttendance = async (req: AuthRequest, res: Response) => {
     const attendanceDate = new Date(date as string);
     attendanceDate.setUTCHours(0, 0, 0, 0);
 
+    const classification = await classifySchoolDay(req.user.schoolId, attendanceDate);
+    if (!classification.available) {
+      return res.json({
+        records: [],
+        total: 0,
+        page,
+        totalPages: 0,
+        reason: classification,
+      });
+    }
+
     const where = {
       classId: classId as string,
       date: attendanceDate,
     };
 
-    const [records, total] = await Promise.all([
+    const [records, total, dayNote] = await Promise.all([
       prisma.attendance.findMany({
         where,
         select: {
@@ -45,6 +57,10 @@ export const listAttendance = async (req: AuthRequest, res: Response) => {
         take: limit,
       }),
       prisma.attendance.count({ where }),
+      prisma.attendanceNote.findUnique({
+        where: { classId_date: { classId: classId as string, date: attendanceDate } },
+        select: { note: true, updatedAt: true },
+      }),
     ]);
 
     res.json({
@@ -59,9 +75,12 @@ export const listAttendance = async (req: AuthRequest, res: Response) => {
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       })),
+      note: dayNote ? dayNote.note : null,
+      noteUpdatedAt: dayNote ? dayNote.updatedAt : null,
       total,
       page,
       totalPages: Math.ceil(total / limit),
+      reason: classification,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "List Attendance");

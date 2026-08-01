@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { resolveSession } from "../../utils/academicTerm";
 
 export const generateReport = async (req: AuthRequest, res: Response) => {
   try {
@@ -11,9 +12,11 @@ export const generateReport = async (req: AuthRequest, res: Response) => {
 
     const { classId, term, session, type } = req.body;
 
-    if (!classId || !term || !session || !type) {
-      return res.status(400).json({ error: "classId, term, session, and type are required" });
+    if (!classId || !term || !type) {
+      return res.status(400).json({ error: "classId, term, and type are required" });
     }
+
+    const resolvedSession = await resolveSession(req.user.schoolId, term, session);
 
     const report = await prisma.report.create({
       data: {
@@ -21,7 +24,7 @@ export const generateReport = async (req: AuthRequest, res: Response) => {
         schoolId: req.user.schoolId,
         classId,
         term,
-        session,
+        session: resolvedSession,
         type,
         generatedBy: req.user.userId,
       },

@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { resolveSession } from "../../utils/academicTerm";
 
 export const listFeeStructures = async (req: AuthRequest, res: Response) => {
   try {
@@ -15,6 +16,9 @@ export const listFeeStructures = async (req: AuthRequest, res: Response) => {
     if (classId) where.classId = classId;
     if (term) where.term = term;
     if (session) where.session = session;
+    if (term && !session) {
+      where.session = await resolveSession(req.user.schoolId, term as string);
+    }
 
     const feeStructures = await prisma.feeStructure.findMany({
       where,

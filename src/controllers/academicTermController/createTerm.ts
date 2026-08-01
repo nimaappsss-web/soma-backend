@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { isTermCurrent } from "../../utils/academicTerm";
 
 export const createTerm = async (req: AuthRequest, res: Response) => {
   try {
@@ -9,10 +10,10 @@ export const createTerm = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    let { term, session, startDate, endDate } = req.body;
+    let { term, startDate, endDate } = req.body;
 
-    if (!term || !session || !startDate || !endDate) {
-      return res.status(400).json({ error: "Term, session, startDate, and endDate are required" });
+    if (!term || !startDate || !endDate) {
+      return res.status(400).json({ error: "Term, startDate, and endDate are required" });
     }
 
     const termMap: Record<string, string> = {
@@ -26,12 +27,12 @@ export const createTerm = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "Term must be 1, 2, 3, 1st, 2nd, 3rd, first, second, or third" });
     }
 
-    const existing = await prisma.academicTerm.findFirst({
-      where: { schoolId: req.user.schoolId, term, session },
+    const existing = await prisma.academicTerm.findUnique({
+      where: { schoolId_term: { schoolId: req.user.schoolId, term } },
     });
 
     if (existing) {
-      return res.status(400).json({ error: "This term already exists for this session" });
+      return res.status(400).json({ error: "This term already exists" });
     }
 
     const start = new Date(startDate);
@@ -47,13 +48,18 @@ export const createTerm = async (req: AuthRequest, res: Response) => {
         id: req.body.id || undefined,
         schoolId: req.user.schoolId,
         term,
-        session,
         startDate: start,
         endDate: end,
       },
     });
 
-    res.status(201).json({ term: { ...newTerm, term: displayMap[newTerm.term] || newTerm.term } });
+    res.status(201).json({
+      term: {
+        ...newTerm,
+        term: displayMap[newTerm.term] || newTerm.term,
+        isCurrent: isTermCurrent(start, end),
+      },
+    });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Create Term");
     res.status(errorResponse.status).json(errorResponse);

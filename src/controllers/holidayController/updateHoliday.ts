@@ -24,7 +24,7 @@ export const updateHoliday = async (req: AuthRequest, res: Response) => {
 
     if (date !== undefined) {
       const holidayDate = new Date(date);
-      holidayDate.setHours(0, 0, 0, 0);
+      holidayDate.setUTCHours(0, 0, 0, 0);
 
       const duplicate = await prisma.holiday.findFirst({
         where: { schoolId: req.user.schoolId, date: holidayDate, id: { not: id } },

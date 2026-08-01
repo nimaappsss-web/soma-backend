@@ -2,6 +2,8 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { classifySchoolDays, toUtcDateString } from "../../utils/attendanceAvailability";
+import { round2 } from "../../utils/dayAttendance";
 
 export const attendanceAnalyticsCalendar = async (req: AuthRequest, res: Response) => {
   try {
@@ -18,11 +20,7 @@ export const attendanceAnalyticsCalendar = async (req: AuthRequest, res: Respons
     const startDate = new Date(parseInt(year as string), parseInt(month as string) - 1, 1);
     const endDate = new Date(parseInt(year as string), parseInt(month as string), 0, 23, 59, 59);
 
-    const [holidays, attendance] = await Promise.all([
-      prisma.holiday.findMany({
-        where: { schoolId, date: { gte: startDate, lte: endDate } },
-        select: { date: true },
-      }),
+    const [attendance, totalStudents, holidays] = await Promise.all([
       prisma.attendance.findMany({
         where: {
           student: { schoolId, status: "ACTIVE" },
@@ -31,48 +29,73 @@ export const attendanceAnalyticsCalendar = async (req: AuthRequest, res: Respons
         },
         select: { date: true, status: true },
       }),
+      prisma.student.count({
+        where: { schoolId, status: "ACTIVE", ...(classId ? { classId: classId as string } : {}) },
+      }),
+      prisma.holiday.findMany({
+        where: { schoolId, date: { gte: startDate, lte: endDate } },
+        select: { date: true },
+      }),
     ]);
 
-    const holidayDates = new Set(holidays.map((h) => h.date.toISOString().split("T")[0]));
-
-    const totalStudents = await prisma.student.count({
-      where: { schoolId, status: "ACTIVE", ...(classId ? { classId: classId as string } : {}) },
-    });
+    const holidayDates = holidays.map((h) => toUtcDateString(h.date));
 
     const totalDaysInMonth = endDate.getDate();
+    const dates: Date[] = [];
+    for (let d = 1; d <= totalDaysInMonth; d++) {
+      dates.push(new Date(Date.UTC(parseInt(year as string), parseInt(month as string) - 1, d)));
+    }
+
+    const classifications = await classifySchoolDays(schoolId, dates);
+
+    const dayAttendance = new Map<string, { present: number; absent: number; late: number; recorded: number }>();
+    for (const a of attendance) {
+      const key = toUtcDateString(a.date);
+      const entry = dayAttendance.get(key) || { present: 0, absent: 0, late: 0, recorded: 0 };
+      entry.recorded += 1;
+      if (a.status === "present") entry.present += 1;
+      else if (a.status === "absent") entry.absent += 1;
+      else if (a.status === "late") entry.late += 1;
+      dayAttendance.set(key, entry);
+    }
+
     const days: any[] = [];
     let schoolDays = 0;
 
-    for (let d = 1; d <= totalDaysInMonth; d++) {
-      const date = new Date(parseInt(year as string), parseInt(month as string) - 1, d);
-      const dateStr = date.toISOString().split("T")[0];
-      const dayOfWeek = date.toLocaleDateString("en-US", { weekday: "long" });
-      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+    for (const date of dates) {
+      const dateStr = toUtcDateString(date);
+      const dayOfWeek = date.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+      const classification = classifications.get(dateStr) || { available: true };
+      const counts = dayAttendance.get(dateStr) || { present: 0, absent: 0, late: 0, recorded: 0 };
 
-      if (isWeekend) {
-        days.push({ date: dateStr, dayOfWeek, isSchoolDay: false, isHoliday: false, present: null, absent: null, percentage: null });
-        continue;
+      if (classification.available) {
+        schoolDays++;
       }
 
-      if (holidayDates.has(dateStr)) {
-        days.push({ date: dateStr, dayOfWeek, isSchoolDay: false, isHoliday: true, present: null, absent: null, percentage: null });
-        continue;
-      }
+      const percentage = totalStudents > 0 ? round2((counts.present / totalStudents) * 100) : 0;
 
-      schoolDays++;
-      const dayAttendance = attendance.filter((a) => a.date.toISOString().split("T")[0] === dateStr);
-      const present = dayAttendance.filter((a) => a.status === "present").length;
-      const absent = totalStudents - present;
-      const percentage = totalStudents > 0 ? Math.round((present / totalStudents) * 100) : 0;
-
-      days.push({ date: dateStr, dayOfWeek, isSchoolDay: true, isHoliday: false, present, absent, percentage });
+      days.push({
+        date: dateStr,
+        dayOfWeek,
+        isSchoolDay: classification.available,
+        isHoliday: classification.type === "HOLIDAY",
+        isWeekend: classification.type === "WEEKEND",
+        isOutOfTerm: classification.type === "OUT_OF_TERM",
+        blockedReason: classification.message || null,
+        blockedType: classification.type || null,
+        present: counts.present,
+        absent: counts.absent,
+        late: counts.late,
+        unmarked: totalStudents - counts.recorded,
+        percentage,
+      });
     }
 
     res.json({
       month: parseInt(month as string),
       year: parseInt(year as string),
       schoolDays,
-      holidayDates: Array.from(holidayDates),
+      holidayDates,
       days,
     });
   } catch (error) {

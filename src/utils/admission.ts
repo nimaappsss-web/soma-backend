@@ -1,3 +1,11 @@
+export const generatePrefix = (schoolName: string): string => {
+  const words = schoolName.trim().split(/\s+/);
+  if (words.length === 1) {
+    return words[0].substring(0, 3).toUpperCase();
+  }
+  return words.map((w) => w.charAt(0).toUpperCase()).join("");
+};
+
 export const generateAdmissionNo = (pattern: string, counter: number): string => {
   const year = new Date().getFullYear().toString();
   const seq = String(counter).padStart(3, "0");

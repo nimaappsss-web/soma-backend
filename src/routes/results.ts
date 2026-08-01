@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { termResults } from "../controllers/examController";
-import { authenticateToken, requireAdmin } from "../middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 
 const router = Router();
 
-router.get("/term", authenticateToken, requireAdmin(), termResults);
+router.get("/term", authenticateToken, termResults);
 
 export default router;

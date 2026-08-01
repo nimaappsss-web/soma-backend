@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { isTermCurrent } from "../../utils/academicTerm";
 
 export const createCalendarTerms = async (req: AuthRequest, res: Response) => {
   try {
@@ -9,10 +10,10 @@ export const createCalendarTerms = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    let { term, session, startDate, endDate } = req.body;
+    let { term, startDate, endDate } = req.body;
 
-    if (!term || !session || !startDate || !endDate) {
-      return res.status(400).json({ error: "term, session, startDate, and endDate are required" });
+    if (!term || !startDate || !endDate) {
+      return res.status(400).json({ error: "term, startDate, and endDate are required" });
     }
 
     const termMap: Record<string, string> = {
@@ -27,30 +28,32 @@ export const createCalendarTerms = async (req: AuthRequest, res: Response) => {
     }
 
     const existing = await prisma.academicTerm.findUnique({
-      where: { schoolId_term_session: { schoolId: req.user.schoolId, term, session } },
+      where: { schoolId_term: { schoolId: req.user.schoolId, term } },
     });
 
     if (existing) {
-      return res.status(400).json({ error: "Term already exists for this session" });
+      return res.status(400).json({ error: "Term already exists" });
     }
 
-    const termCount = await prisma.academicTerm.count({
-      where: { schoolId: req.user.schoolId },
-    });
+    const start = new Date(startDate);
+    const end = new Date(endDate);
 
     const academicTerm = await prisma.academicTerm.create({
       data: {
         id: req.body.id || undefined,
         schoolId: req.user.schoolId,
         term,
-        session,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        isCurrent: termCount === 0,
+        startDate: start,
+        endDate: end,
       },
     });
 
-    res.status(201).json({ term: academicTerm });
+    res.status(201).json({
+      term: {
+        ...academicTerm,
+        isCurrent: isTermCurrent(start, end),
+      },
+    });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Create Calendar Terms");
     res.status(errorResponse.status).json(errorResponse);

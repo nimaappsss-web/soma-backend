@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { isTermCurrent } from "../../utils/academicTerm";
 
 export const listCalendarTerms = async (req: AuthRequest, res: Response) => {
   try {
@@ -11,11 +12,16 @@ export const listCalendarTerms = async (req: AuthRequest, res: Response) => {
 
     const terms = await prisma.academicTerm.findMany({
       where: { schoolId: req.user.schoolId },
-      orderBy: [{ session: "desc" }, { term: "asc" }],
-      select: { id: true, term: true, session: true, startDate: true, endDate: true, isCurrent: true },
+      orderBy: { term: "asc" },
+      select: { id: true, term: true, startDate: true, endDate: true },
     });
 
-    res.json({ terms });
+    res.json({
+      terms: terms.map((t) => ({
+        ...t,
+        isCurrent: isTermCurrent(t.startDate, t.endDate),
+      })),
+    });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "List Calendar Terms");
     res.status(errorResponse.status).json(errorResponse);

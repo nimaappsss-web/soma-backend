@@ -5,6 +5,7 @@ import { createErrorResponse } from "../../utils/errorHandler";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { getSubjectsForSchool } from "../../data/subjects";
+import { generatePrefix } from "../../utils/admission";
 
 export const registerSchool = async (req: AuthRequest, res: Response) => {
   try {
@@ -27,6 +28,8 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      const prefix = generatePrefix(schoolName);
+
       const school = await tx.school.create({
         data: {
           name: schoolName,
@@ -34,6 +37,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
           state,
           lga,
           schoolType: JSON.stringify(schoolType || ["primary"]),
+          admissionPattern: `${prefix}/{year}/{seq}`,
           arms: arms ? JSON.stringify(arms) : undefined,
           logo: logoUrl || null,
           principalId: principal.id,

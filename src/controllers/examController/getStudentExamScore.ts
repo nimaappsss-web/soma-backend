@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { canAccessExam } from "../../utils/examAccess";
 
 export const getStudentExamScore = async (req: AuthRequest, res: Response) => {
   try {
@@ -18,6 +19,11 @@ export const getStudentExamScore = async (req: AuthRequest, res: Response) => {
 
     if (!exam) {
       return res.status(404).json({ error: "Exam not found" });
+    }
+
+    const hasAccess = await canAccessExam(req.user, exam);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "Insufficient permissions" });
     }
 
     const student = await prisma.student.findFirst({

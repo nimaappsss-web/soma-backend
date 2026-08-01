@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { getDayAttendanceSummary } from "../../utils/dayAttendance";
 
 export const dashboardStats = async (req: AuthRequest, res: Response) => {
   try {
@@ -11,13 +12,6 @@ export const dashboardStats = async (req: AuthRequest, res: Response) => {
 
     const schoolId = req.user.schoolId;
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const todayHoliday = await prisma.holiday.findFirst({
-      where: { schoolId, date: today },
-    });
 
     const [
       totalStudents,
@@ -32,8 +26,7 @@ export const dashboardStats = async (req: AuthRequest, res: Response) => {
       activeParents,
       pendingParentInvites,
       totalSubjects,
-      todayAttendance,
-      totalStudentsForAttendance,
+      todaySummary,
     ] = await Promise.all([
       prisma.student.count({ where: { schoolId } }),
       prisma.student.count({ where: { schoolId, status: "ACTIVE" } }),
@@ -47,22 +40,8 @@ export const dashboardStats = async (req: AuthRequest, res: Response) => {
       prisma.user.count({ where: { schoolId, role: "PARENT", emailVerified: true } }),
       prisma.inviteToken.count({ where: { schoolId, role: "PARENT", usedAt: null, expiresAt: { gt: new Date() } } }),
       prisma.subject.count({ where: { schoolId } }),
-      prisma.attendance.groupBy({
-        by: ["status"],
-        where: {
-          student: { schoolId },
-          date: { gte: today, lt: tomorrow },
-        },
-        _count: { status: true },
-      }),
-      prisma.student.count({ where: { schoolId, status: "ACTIVE" } }),
+      getDayAttendanceSummary(schoolId, today),
     ]);
-
-    const presentCount = todayAttendance.find((a) => a.status === "present")?._count.status || 0;
-    const absentCount = todayAttendance.find((a) => a.status === "absent")?._count.status || 0;
-    const attendancePercentage = totalStudentsForAttendance > 0
-      ? Math.round((presentCount / totalStudentsForAttendance) * 100)
-      : 0;
 
     res.json({
       students: {
@@ -84,13 +63,13 @@ export const dashboardStats = async (req: AuthRequest, res: Response) => {
       },
       subjects: { total: totalSubjects },
       attendance: {
-        today: todayHoliday ? null : {
-          present: presentCount,
-          absent: absentCount,
-          percentage: attendancePercentage,
-          dayOfWeek: today.toLocaleDateString("en-US", { weekday: "long" }),
+        today: {
+          present: todaySummary.present,
+          absent: todaySummary.absent,
+          percentage: todaySummary.percentage,
+          dayOfWeek: todaySummary.dayOfWeek,
         },
-        isHoliday: !!todayHoliday,
+        isHoliday: todaySummary.isHoliday,
       },
     });
   } catch (error) {

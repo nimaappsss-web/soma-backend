@@ -19,10 +19,27 @@ export const listEvents = async (req: AuthRequest, res: Response) => {
       if (to) where.date.lte = new Date(to as string);
     }
 
-    const events = await prisma.calendarEvent.findMany({
-      where,
-      orderBy: { date: "asc" },
-    });
+    const includeHolidays = !type || type === "HOLIDAY";
+
+    const [events, holidays] = await Promise.all([
+      prisma.calendarEvent.findMany({
+        where,
+        orderBy: { date: "asc" },
+      }),
+      includeHolidays
+        ? prisma.holiday.findMany({
+            where: {
+              schoolId: req.user.schoolId,
+              ...(from || to ? { date: {
+                ...(from ? { gte: new Date(from as string) } : {}),
+                ...(to ? { lte: new Date(to as string) } : {}),
+              } } : {}),
+            },
+            orderBy: { date: "asc" },
+            select: { id: true, date: true, reason: true, createdBy: true, createdAt: true },
+          })
+        : Promise.resolve([]),
+    ]);
 
     const userIds = [...new Set(events.map((e) => e.createdBy))];
     const users = userIds.length > 0
@@ -30,16 +47,32 @@ export const listEvents = async (req: AuthRequest, res: Response) => {
       : [];
     const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
 
+    const holidayItems = holidays.map((h) => ({
+      id: h.id,
+      title: h.reason,
+      description: "Holiday",
+      date: h.date,
+      type: "HOLIDAY",
+      audience: "ALL",
+      source: "holiday",
+      createdBy: { id: h.createdBy, name: "Unknown" },
+      createdAt: h.createdAt,
+    }));
+
     res.json({
-      events: events.map((e) => ({
-        id: e.id,
-        title: e.title,
-        description: e.description,
-        date: e.date,
-        type: e.type,
-        audience: e.audience,
-        createdBy: userMap[e.createdBy] ? { id: e.createdBy, name: userMap[e.createdBy].name } : { id: e.createdBy, name: "Unknown" },
-      })),
+      events: [
+        ...holidayItems,
+        ...events.map((e) => ({
+          id: e.id,
+          title: e.title,
+          description: e.description,
+          date: e.date,
+          type: e.type,
+          audience: e.audience,
+          source: "event",
+          createdBy: userMap[e.createdBy] ? { id: e.createdBy, name: userMap[e.createdBy].name } : { id: e.createdBy, name: "Unknown" },
+        })),
+      ],
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "List Events");
