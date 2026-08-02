@@ -4,3 +4,4 @@ export { reportDetails } from "./reportDetails";
 export { availableReports } from "./availableReports";
 export { downloadReport } from "./downloadReport";
 export { reportHistory } from "./reportHistory";
+export { getReportSettings, updateReportSettings } from "./reportSettings";

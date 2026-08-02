@@ -19,7 +19,7 @@ export const myAssignments = async (req: AuthRequest, res: Response) => {
         subject: { select: { id: true, name: true, code: true } },
         classes: {
           select: {
-            class: { select: { id: true, name: true, level: true, arm: true } },
+            class: { select: { id: true, name: true, level: true, arm: true, schoolType: true } },
           },
         },
       },

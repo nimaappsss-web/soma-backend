@@ -29,17 +29,19 @@ export const listClasses = async (req: AuthRequest, res: Response) => {
       });
 
       const types: string[] = school?.schoolType ? JSON.parse(school.schoolType) : ["primary"];
-      const levels = types.flatMap((t) => LEVELS_BY_TYPE[t] || []);
       const allArms: string[] = school?.arms ? JSON.parse(school.arms) : ["A", "B", "C"];
       const arms = types.includes("creche") ? [allArms[0] || "A"] : allArms;
 
-      const data = [...new Set(levels)].flatMap((level) =>
-        arms.map((arm) => ({
-          schoolId,
-          name: `${level} ${arm}`,
-          level,
-          arm,
-        }))
+      const data = types.flatMap((type) =>
+        (LEVELS_BY_TYPE[type] || []).flatMap((level) =>
+          arms.map((arm) => ({
+            schoolId,
+            name: `${level} ${arm}`,
+            level,
+            arm,
+            schoolType: type,
+          }))
+        )
       );
 
       await prisma.class.createMany({ data });
@@ -51,7 +53,7 @@ export const listClasses = async (req: AuthRequest, res: Response) => {
         { level: "asc" },
         { arm: "asc" },
       ],
-      select: { id: true, name: true, level: true, arm: true, createdAt: true, updatedAt: true, syncStatus: true, syncedAt: true, version: true },
+      select: { id: true, name: true, level: true, arm: true, schoolType: true, createdAt: true, updatedAt: true, syncStatus: true, syncedAt: true, version: true },
     });
 
     const levels = [...new Set(classes.map((c) => c.level))];

@@ -2,7 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
-import { SCORE_COMPONENT_TYPES, getSchemeInfo } from "../../utils/scoreScheme";
+import { SCORE_COMPONENT_TYPES, getSchemeInfoBySchemeId } from "../../utils/scoreScheme";
 
 export const updateScoreComponent = async (req: AuthRequest, res: Response) => {
   try {
@@ -35,6 +35,26 @@ export const updateScoreComponent = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    if (name !== undefined) {
+      const trimmedName = String(name).trim();
+      if (!trimmedName) {
+        return res.status(400).json({ error: "name cannot be empty" });
+      }
+      const duplicate = await prisma.scoreComponent.findFirst({
+        where: {
+          schemeId: component.schemeId,
+          name: trimmedName,
+          NOT: { id: component.id },
+        },
+        select: { id: true },
+      });
+      if (duplicate) {
+        return res.status(400).json({
+          error: `A component named "${trimmedName}" already exists in this configuration`,
+        });
+      }
+    }
+
     const updated = await prisma.scoreComponent.update({
       where: { id: component.id },
       data: {
@@ -45,9 +65,16 @@ export const updateScoreComponent = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    const scheme = await getSchemeInfo(req.user.schoolId, component.term, component.session);
+    const scheme = await getSchemeInfoBySchemeId(req.user.schoolId, component.schemeId);
 
-    res.json({ component: updated, schemeTotal: scheme.schemeTotal, complete: scheme.complete, warning: scheme.warning });
+    res.json({
+      component: updated,
+      schemeId: scheme.schemeId,
+      schoolTypes: scheme.schoolTypes,
+      schemeTotal: scheme.schemeTotal,
+      complete: scheme.complete,
+      warning: scheme.warning,
+    });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Update Score Component");
     res.status(errorResponse.status).json(errorResponse);

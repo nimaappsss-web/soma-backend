@@ -3,6 +3,7 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { classifySchoolDay } from "../../utils/attendanceAvailability";
+import { parseSchoolTypes } from "../../utils/scoreScheme";
 
 export const updateExam = async (req: AuthRequest, res: Response) => {
   try {
@@ -28,12 +29,16 @@ export const updateExam = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    let targetClassId: string | null | undefined;
     if (classId !== undefined) {
       if (classId) {
         const classRecord = await prisma.class.findFirst({ where: { id: classId, schoolId } });
         if (!classRecord) {
           return res.status(400).json({ error: "Class not found for this school" });
         }
+        targetClassId = classRecord.id;
+      } else {
+        targetClassId = null;
       }
     }
 
@@ -48,6 +53,27 @@ export const updateExam = async (req: AuthRequest, res: Response) => {
         if (!component) {
           return res.status(400).json({ error: "Score component not found for this school and term" });
         }
+
+        const checkClassId = targetClassId !== undefined ? targetClassId : exam.classId;
+        if (checkClassId) {
+          const classRecord = await prisma.class.findFirst({
+            where: { id: checkClassId, schoolId },
+            select: { name: true, schoolType: true },
+          });
+          if (classRecord) {
+            const scheme = await prisma.scoreScheme.findFirst({
+              where: { id: component.schemeId },
+              select: { schoolTypes: true },
+            });
+            const covered = scheme ? parseSchoolTypes(scheme.schoolTypes) : [];
+            if (!covered.includes(classRecord.schoolType)) {
+              return res.status(400).json({
+                error: `This configuration does not apply to ${classRecord.name} (${classRecord.schoolType})`,
+              });
+            }
+          }
+        }
+
         resolvedComponentId = component.id;
         if (maxScore === undefined) {
           resolvedMaxScore = component.maxScore;
@@ -94,7 +120,7 @@ export const updateExam = async (req: AuthRequest, res: Response) => {
         ...(name !== undefined ? { name } : {}),
         ...(type !== undefined ? { type } : {}),
         ...(subjectId !== undefined ? { subjectId } : {}),
-        ...(classId !== undefined ? { classId: classId || null } : {}),
+        ...(classId !== undefined ? { classId: targetClassId } : {}),
         ...(resolvedComponentId !== undefined ? { componentId: resolvedComponentId } : {}),
         ...(resolvedMaxScore !== undefined ? { maxScore: resolvedMaxScore } : {}),
         ...(resolvedDate !== undefined ? { date: resolvedDate } : {}),

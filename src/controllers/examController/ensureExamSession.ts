@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { resolveSession } from "../../utils/academicTerm";
 import { canAccessExam, isAdminUser } from "../../utils/examAccess";
+import { parseSchoolTypes } from "../../utils/scoreScheme";
 
 /**
  * Resolves an assessment for a subject + class + mark type (score component).
@@ -49,6 +50,17 @@ export const ensureExamSession = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const scheme = await prisma.scoreScheme.findFirst({
+      where: { id: component.schemeId },
+      select: { schoolTypes: true },
+    });
+    const covered = scheme ? parseSchoolTypes(scheme.schoolTypes) : [];
+    if (!covered.includes(classRecord.schoolType)) {
+      return res.status(400).json({
+        error: `This configuration does not apply to ${classRecord.name} (${classRecord.schoolType})`,
+      });
+    }
+
     if (!isAdminUser(req.user)) {
       const hasAccess = await canAccessExam(req.user, { schoolId, subjectId, classId });
       if (!hasAccess) {
@@ -63,28 +75,22 @@ export const ensureExamSession = async (req: AuthRequest, res: Response) => {
       _count: { select: { scores: true } },
     } as const;
 
-    const existing = await prisma.examSession.findFirst({
-      where: { schoolId, subjectId, classId, componentId, term, session: resolvedSession },
-      include,
-    });
-
-    if (existing) {
-      return res.json({
-        exam: {
-          ...existing,
-          subjectName: existing.subject.name,
-          className: existing.class?.name || null,
-          componentName: existing.component?.name || null,
-          scoreCount: existing._count.scores,
-        },
-      });
-    }
-
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    const exam = await prisma.examSession.create({
-      data: {
+    const exam = await prisma.examSession.upsert({
+      where: {
+        schoolId_subjectId_classId_componentId_term_session: {
+          schoolId,
+          subjectId,
+          classId,
+          componentId,
+          term,
+          session: resolvedSession,
+        },
+      },
+      update: {},
+      create: {
         schoolId,
         subjectId,
         classId,
@@ -100,7 +106,7 @@ export const ensureExamSession = async (req: AuthRequest, res: Response) => {
       include,
     });
 
-    res.status(201).json({
+    res.json({
       exam: {
         ...exam,
         subjectName: exam.subject.name,

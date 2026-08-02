@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { inferSchoolTypeFromLevel } from "../../utils/classSeed";
 
 export const createClass = async (req: AuthRequest, res: Response) => {
   try {
@@ -9,7 +10,7 @@ export const createClass = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { name, level, arm } = req.body;
+    const { name, level, arm, schoolType } = req.body;
 
     if (!name || !level) {
       return res.status(400).json({ error: "Name and level are required" });
@@ -23,6 +24,18 @@ export const createClass = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "Class already exists" });
     }
 
+    let resolvedSchoolType: string;
+    if (schoolType && typeof schoolType === "string" && schoolType.trim()) {
+      resolvedSchoolType = schoolType.trim();
+    } else {
+      const school = await prisma.school.findUnique({
+        where: { id: req.user.schoolId },
+        select: { schoolType: true },
+      });
+      const schoolTypes = school?.schoolType ? JSON.parse(school.schoolType) : [];
+      resolvedSchoolType = inferSchoolTypeFromLevel(level, schoolTypes);
+    }
+
     const newClass = await prisma.class.create({
       data: {
         id: req.body.id || undefined,
@@ -30,6 +43,7 @@ export const createClass = async (req: AuthRequest, res: Response) => {
         name,
         level,
         arm: arm || "",
+        schoolType: resolvedSchoolType,
       },
     });
 

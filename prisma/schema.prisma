@@ -43,7 +43,9 @@ model School {
   invoices           Invoice[]
   payments           Payment[]
   reports            Report[]
+  reportSettings     SchoolReportSettings?
   scoreComponents    ScoreComponent[]
+  scoreSchemes       ScoreScheme[]
   gradeScales        GradeScale[]
   principal          User?     @relation("SchoolPrincipal", fields: [principalId], references: [id], onDelete: SetNull)
 
@@ -206,6 +208,7 @@ model Class {
   name      String // JSS 1A, SS 2B, etc
   level     String // JSS 1, JSS 2, SS 1, etc
   arm       String // A, B, C, etc
+  schoolType String // creche | kg | primary | secondary (or a custom school type)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -417,11 +420,13 @@ model ExamSession {
   @@index([classId])
   @@index([componentId])
   @@index([term, session])
+  @@unique([schoolId, subjectId, classId, componentId, term, session])
 }
 
 model ScoreComponent {
   id        String   @id @default(cuid())
   schoolId  String
+  schemeId  String
   term      String
   session   String
   name      String // "Test 1", "Assignment", "Exam", etc
@@ -432,10 +437,32 @@ model ScoreComponent {
   updatedAt DateTime @updatedAt
 
   school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  scheme       ScoreScheme   @relation(fields: [schemeId], references: [id], onDelete: Cascade)
   examSessions ExamSession[]
 
-  @@unique([schoolId, term, session, name])
+  @@unique([schemeId, name])
   @@index([schoolId, term, session])
+  @@index([schemeId])
+}
+
+// A score configuration: a named set of ScoreComponents scoped to an array of
+// school types (e.g. ["primary", "secondary"]) for a term. A class's scores use
+// the configuration whose schoolTypes include the class's schoolType.
+model ScoreScheme {
+  id          String   @id @default(cuid())
+  schoolId    String
+  term        String
+  session     String
+  schoolTypes String // JSON string array, normalized (sorted + deduped)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school          School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  scoreComponents ScoreComponent[]
+
+  @@unique([schoolId, term, session, schoolTypes])
+  @@index([schoolId, term, session])
+  @@index([schoolId])
 }
 
 model GradeScale {
@@ -632,6 +659,19 @@ model Report {
   generatedBy String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+}
+
+model SchoolReportSettings {
+  id        String   @id @default(cuid())
+  schoolId  String   @unique
+  template  String   @default("classic") // classic, modern, compact
+  theme     String   @default("slate") // slate, emerald, indigo, amber
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 

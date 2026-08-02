@@ -2,32 +2,34 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
-import { resolveSession } from "../../utils/academicTerm";
 import { getTeacherExamScope, isAdminUser } from "../../utils/examAccess";
 
-export const listExams = async (req: AuthRequest, res: Response) => {
+const LIMIT = 25;
+
+/**
+ * Returns the teacher's scored assessments (exam sessions with at least one
+ * saved score) as lean card summaries — the data needed to render the Active
+ * Assessments list. Per-student scores are NOT included here; they are fetched
+ * on demand when a teacher opens an assessment.
+ */
+export const getActiveExamScores = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user || !req.user.schoolId) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { term, session, subjectId } = req.query;
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit as string) || 20));
-    const skip = (page - 1) * limit;
+    const schoolId = req.user.schoolId;
+    const { term, classId, subjectId } = req.query as Record<string, string>;
 
-    const where: any = { schoolId: req.user.schoolId };
+    const where: any = { schoolId, scores: { some: {} } };
     if (term) where.term = term;
-    if (session) where.session = session;
-    if (term && !session) {
-      where.session = await resolveSession(req.user.schoolId, term as string);
-    }
+    if (classId) where.classId = classId;
     if (subjectId) where.subjectId = subjectId;
 
     if (!isAdminUser(req.user)) {
       const scope = await getTeacherExamScope(req.user.userId);
       if (scope.classBySubject.size === 0) {
-        return res.json({ exams: [], total: 0, page, totalPages: 0 });
+        return res.json({ exams: [], total: 0 });
       }
       const ors: any[] = [];
       for (const [subjectIdKey, classes] of scope.classBySubject.entries()) {
@@ -50,27 +52,35 @@ export const listExams = async (req: AuthRequest, res: Response) => {
           component: { select: { id: true, name: true } },
           _count: { select: { scores: true } },
         },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
+        orderBy: { updatedAt: "desc" },
+        take: LIMIT,
       }),
       prisma.examSession.count({ where }),
     ]);
 
     res.json({
       exams: exams.map((e) => ({
-        ...e,
+        examKey:
+          e.classId && e.componentId
+            ? `${e.subjectId}:${e.classId}:${e.componentId}:${e.term}`
+            : null,
+        subjectId: e.subjectId,
         subjectName: e.subject.name,
+        classId: e.classId,
         className: e.class?.name || null,
+        componentId: e.componentId,
         componentName: e.component?.name || null,
+        type: e.type,
+        maxScore: e.maxScore,
+        term: e.term,
+        session: e.session,
         scoreCount: e._count.scores,
+        updatedAt: e.updatedAt,
       })),
       total,
-      page,
-      totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    const errorResponse = createErrorResponse(error, "List Exams");
+    const errorResponse = createErrorResponse(error, "Get Active Exam Scores");
     res.status(errorResponse.status).json(errorResponse);
   }
 };

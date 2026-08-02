@@ -3,27 +3,7 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { exampleToPattern, generateAdmissionNo } from "../../utils/admission";
-
-const classMap: Record<string, { name: string; level: string }[]> = {
-  creche: [{ name: "Creche", level: "Creche" }],
-  kg: [{ name: "KG 1", level: "KG" }, { name: "KG 2", level: "KG" }],
-  primary: [
-    { name: "Pry 1", level: "Pry 1" },
-    { name: "Pry 2", level: "Pry 2" },
-    { name: "Pry 3", level: "Pry 3" },
-    { name: "Pry 4", level: "Pry 4" },
-    { name: "Pry 5", level: "Pry 5" },
-    { name: "Pry 6", level: "Pry 6" },
-  ],
-  secondary: [
-    { name: "JSS 1", level: "JSS 1" },
-    { name: "JSS 2", level: "JSS 2" },
-    { name: "JSS 3", level: "JSS 3" },
-    { name: "SS 1", level: "SS 1" },
-    { name: "SS 2", level: "SS 2" },
-    { name: "SS 3", level: "SS 3" },
-  ],
-};
+import { SCHOOL_CLASS_MAP } from "../../utils/classSeed";
 
 export const updateSchool = async (req: AuthRequest, res: Response) => {
   try {
@@ -80,12 +60,12 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
 
     const existingKeys = new Set(existingClasses.map((c) => `${c.level}|${c.arm}`));
 
-    const toCreate: { name: string; level: string; arm: string; schoolId: string }[] = [];
+    const toCreate: { name: string; level: string; arm: string; schoolId: string; schoolType: string }[] = [];
 
     const schoolTypes: string[] = Array.isArray(finalSchoolType) ? finalSchoolType : [finalSchoolType];
 
     for (const type of schoolTypes) {
-      const entries = classMap[type];
+      const entries = SCHOOL_CLASS_MAP[type];
       if (entries) {
         for (const entry of entries) {
           for (const arm of armList) {
@@ -97,6 +77,7 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
                 level: entry.level,
                 arm,
                 schoolId: req.user.schoolId,
+                schoolType: type,
               });
             }
           }

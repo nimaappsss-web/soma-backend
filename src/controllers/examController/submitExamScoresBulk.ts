@@ -60,30 +60,35 @@ export const submitExamScoresBulk = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    let exam = await prisma.examSession.findFirst({
-      where: { schoolId, subjectId, classId, componentId, term, session: resolvedSession },
-    });
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
 
-    if (!exam) {
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-
-      exam = await prisma.examSession.create({
-        data: {
+    const exam = await prisma.examSession.upsert({
+      where: {
+        schoolId_subjectId_classId_componentId_term_session: {
           schoolId,
           subjectId,
           classId,
           componentId,
-          name: component.name,
-          type: component.type,
           term,
           session: resolvedSession,
-          maxScore: component.maxScore,
-          date: today,
-          status: "DRAFT",
         },
-      });
-    }
+      },
+      update: {},
+      create: {
+        schoolId,
+        subjectId,
+        classId,
+        componentId,
+        name: component.name,
+        type: component.type,
+        term,
+        session: resolvedSession,
+        maxScore: component.maxScore,
+        date: today,
+        status: "DRAFT",
+      },
+    });
 
     if (exam.status !== "DRAFT") {
       return res.status(400).json({ error: "Scores are locked once an exam is published" });
