@@ -7,3 +7,4 @@ export { attendanceCalendar } from "./attendanceCalendar";
 export { attendanceAvailability } from "./attendanceAvailability";
 export { attendanceSummaryByClass } from "./attendanceSummaryByClass";
 export { attendanceSummaryByTeacher } from "./attendanceSummaryByTeacher";
+export { attendanceSummaryMyClass } from "./attendanceSummaryMyClass";

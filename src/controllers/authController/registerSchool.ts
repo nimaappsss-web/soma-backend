@@ -39,7 +39,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
           lga,
           schoolType: JSON.stringify(schoolType || ["primary"]),
           admissionPattern: `${prefix}/{year}/{seq}`,
-          arms: arms ? JSON.stringify(arms) : undefined,
+          arms: arms && arms.length > 0 ? JSON.stringify(arms) : "[]",
           logo: logoUrl || null,
           principalId: principal.id,
         },

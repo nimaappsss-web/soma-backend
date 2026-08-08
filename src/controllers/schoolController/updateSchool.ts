@@ -47,11 +47,39 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // Auto-seed classes when arms or schoolType change
+    // Auto-seed/replace classes when arms or schoolType change
+    const armsOrTypesChanged = arms !== undefined || schoolType !== undefined;
+
     const finalSchoolType = schoolType || (school.schoolType ? JSON.parse(school.schoolType) : ["primary"]);
     const finalArms = arms !== undefined ? arms : (school.arms ? JSON.parse(school.arms) : []);
 
     const armList: string[] = Array.isArray(finalArms) && finalArms.length > 0 ? finalArms : [""];
+
+    const schoolTypes: string[] = Array.isArray(finalSchoolType) ? finalSchoolType : [finalSchoolType];
+
+    const hasStudents = (await prisma.student.count({ where: { schoolId: req.user.schoolId } })) > 0;
+
+    // Template levels for the school's configured types.
+    const templateLevels = new Set<string>();
+    for (const type of schoolTypes) {
+      const entries = SCHOOL_CLASS_MAP[type];
+      if (entries) for (const entry of entries) templateLevels.add(entry.level);
+    }
+
+    if (armsOrTypesChanged && !hasStudents) {
+      // REPLACE template classes (no students = safe): remove stale template
+      // classes (no-arm or removed-arm variants) so arms change replaces instead
+      // of appending. Custom classes (level not in the template) are preserved.
+      if (templateLevels.size > 0) {
+        await prisma.class.deleteMany({
+          where: {
+            schoolId: req.user.schoolId,
+            level: { in: [...templateLevels] },
+            NOT: { arm: { in: armList } },
+          },
+        });
+      }
+    }
 
     const existingClasses = await prisma.class.findMany({
       where: { schoolId: req.user.schoolId },
@@ -61,8 +89,6 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
     const existingKeys = new Set(existingClasses.map((c) => `${c.level}|${c.arm}`));
 
     const toCreate: { name: string; level: string; arm: string; schoolId: string; schoolType: string }[] = [];
-
-    const schoolTypes: string[] = Array.isArray(finalSchoolType) ? finalSchoolType : [finalSchoolType];
 
     for (const type of schoolTypes) {
       const entries = SCHOOL_CLASS_MAP[type];

@@ -23,4 +23,5 @@ export { verifyRegistrationOtp } from "./verifyRegistrationOtp";
 export { completeProfile } from "./completeProfile";
 export { googleAuth } from "./googleAuth";
 export { changePassword } from "./changePassword";
+export { setPassword } from "./setPassword";
 export { generateInviteLink } from "./generateInviteLink";

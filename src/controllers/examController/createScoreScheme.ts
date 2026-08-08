@@ -13,7 +13,7 @@ export const createScoreScheme = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { term, session, schoolTypes } = req.body;
+    const { term, session, schoolTypes, id } = req.body;
 
     if (!term) {
       return res.status(400).json({ error: "term is required" });
@@ -26,7 +26,7 @@ export const createScoreScheme = async (req: AuthRequest, res: Response) => {
     const schoolId = req.user.schoolId;
     const resolvedSession = await resolveSession(schoolId, term, session);
 
-    const { scheme } = await findOrCreateScheme(schoolId, term, resolvedSession, schoolTypes);
+    const { scheme } = await findOrCreateScheme(schoolId, term, resolvedSession, schoolTypes, id);
     const info = await getSchemeInfoBySchemeId(schoolId, scheme.id);
 
     res.status(201).json({

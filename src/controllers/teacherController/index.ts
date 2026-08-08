@@ -5,3 +5,4 @@ export { myAssignments } from "./myAssignments";
 export { teacherDetails } from "./teacherDetails";
 export { updateTeacher } from "./updateTeacher";
 export { teacherStats } from "./teacherStats";
+export { setTeacherApproval } from "./setTeacherApproval";

@@ -107,6 +107,7 @@ export const verifyLoginOtp = async (req: AuthRequest, res: Response) => {
         schoolId: user.schoolId,
         schoolName: user.school?.name || null,
         emailVerified: user.emailVerified,
+        approvalStatus: user.approvalStatus,
         hasSchool: !!user.schoolId,
         needsSchoolSetup: user.role === "PRINCIPAL" && !user.schoolId,
         needsPhoneSetup: !user.phone,

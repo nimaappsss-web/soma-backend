@@ -94,6 +94,18 @@ export const acceptParentInvite = async (req: AuthRequest, res: Response) => {
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
+    await prisma.session.create({
+      data: {
+        userId: result.id,
+        deviceId: req.body.deviceId || crypto.randomUUID(),
+        deviceType: "web",
+        deviceName: req.body.deviceName || "Web Browser",
+        refreshToken,
+        isPrimary: true,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+
     res.status(201).json({
       message: "Parent account set up successfully",
       accessToken,

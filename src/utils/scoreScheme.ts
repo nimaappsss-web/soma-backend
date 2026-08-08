@@ -234,6 +234,7 @@ export const findOrCreateScheme = async (
   term: string,
   session: string,
   schoolTypes: string[],
+  id?: string,
 ): Promise<{ scheme: { id: string; schoolTypes: string }; created: boolean }> => {
   const normalized = normalizeSchoolTypes(schoolTypes);
   if (normalized.length === 0) {
@@ -275,7 +276,7 @@ export const findOrCreateScheme = async (
   }
 
   const scheme = await prisma.scoreScheme.create({
-    data: { schoolId, term, session, schoolTypes: serialized },
+    data: { id: id || undefined, schoolId, term, session, schoolTypes: serialized },
     select: { id: true, schoolTypes: true },
   });
 

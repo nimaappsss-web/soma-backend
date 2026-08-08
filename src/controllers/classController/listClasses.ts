@@ -29,8 +29,8 @@ export const listClasses = async (req: AuthRequest, res: Response) => {
       });
 
       const types: string[] = school?.schoolType ? JSON.parse(school.schoolType) : ["primary"];
-      const allArms: string[] = school?.arms ? JSON.parse(school.arms) : ["A", "B", "C"];
-      const arms = types.includes("creche") ? [allArms[0] || "A"] : allArms;
+      const allArms: string[] = school?.arms ? JSON.parse(school.arms) : [];
+      const arms = allArms.length > 0 ? (types.includes("creche") ? [allArms[0]] : allArms) : [""];
 
       const data = types.flatMap((type) =>
         (LEVELS_BY_TYPE[type] || []).flatMap((level) =>
@@ -53,12 +53,34 @@ export const listClasses = async (req: AuthRequest, res: Response) => {
         { level: "asc" },
         { arm: "asc" },
       ],
-      select: { id: true, name: true, level: true, arm: true, schoolType: true, createdAt: true, updatedAt: true, syncStatus: true, syncedAt: true, version: true },
+      select: {
+        id: true,
+        name: true,
+        level: true,
+        arm: true,
+        schoolType: true,
+        createdAt: true,
+        updatedAt: true,
+        syncStatus: true,
+        syncedAt: true,
+        version: true,
+        _count: { select: { students: true } },
+        formTeachers: {
+          select: { id: true, name: true, email: true, phone: true },
+          take: 1,
+        },
+      },
     });
 
     const levels = [...new Set(classes.map((c) => c.level))];
 
-    res.json({ classes, levels });
+    const items = classes.map(({ _count, formTeachers, ...rest }) => ({
+      ...rest,
+      studentCount: _count.students,
+      formTeacher: formTeachers[0] || null,
+    }));
+
+    res.json({ classes: items, levels });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "List Classes");
     res.status(errorResponse.status).json(errorResponse);

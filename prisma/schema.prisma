@@ -22,7 +22,7 @@ model School {
   logo              String?
   admissionPattern  String   @default("{year}/{seq}")
   admissionCounter  Int      @default(1)
-  arms              String   @default("[\"A\",\"B\",\"C\"]")
+  arms              String   @default("[]")
   principalId       String?  @unique
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
@@ -66,6 +66,7 @@ model User {
   passwordHash   String?
   emailVerified  Boolean  @default(false)
   active         Boolean  @default(true)
+  approvalStatus String   @default("APPROVED") // APPROVED, PENDING, REJECTED
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

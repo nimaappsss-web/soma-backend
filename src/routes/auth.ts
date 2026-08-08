@@ -25,6 +25,7 @@ import {
   completeProfile,
   googleAuth,
   changePassword,
+  setPassword,
   generateInviteLink,
 } from "../controllers/authController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
@@ -674,6 +675,7 @@ router.post("/verify-login-otp", verifyOtpLimiter, verifyLoginOtp);
 router.post("/complete-registration", authenticateToken, completeRegistration);
 
 router.post("/change-password", authenticateToken, changePassword);
+router.post("/set-password", authenticateToken, setPassword);
 
 router.post("/generate-invite-link", authenticateToken, requireAdmin(), generateInviteLink);
 

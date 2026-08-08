@@ -3,14 +3,14 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { validateEmail } from "../../utils/validation";
 import { hashPassword, validatePassword } from "../../utils/password";
-import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
+import { generateAccessToken, generateRefreshToken, verifyRegistrationToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendEmailOtp } from "../../utils/email";
 import { generateOTP } from "../../utils/tokens";
 
 export const acceptInvite = async (req: AuthRequest, res: Response) => {
   try {
-    const { token, name, phone, password, formClassId, assignments } = req.body;
+    const { token, name, phone, password, formClassId, assignments, registrationToken } = req.body;
 
     if (!token) {
       return res.status(400).json({ error: "Token is required" });
@@ -56,6 +56,33 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
 
     const passwordHash = await hashPassword(password);
 
+    const invitedEmail = inviteToken.invitedEmail;
+    let emailVerified = false;
+
+    if (invitedEmail) {
+      emailVerified = true;
+    } else if (registrationToken) {
+      try {
+        const payload = verifyRegistrationToken(registrationToken);
+        if (payload.email === email && payload.purpose === "registration") {
+          emailVerified = true;
+        }
+      } catch {
+        emailVerified = false;
+      }
+    }
+
+    if (!emailVerified) {
+      const verifiedOtp = await prisma.oTP.findFirst({
+        where: {
+          email,
+          verified: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      if (verifiedOtp) emailVerified = true;
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -65,8 +92,9 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
           role: inviteToken.role,
           schoolId: inviteToken.schoolId,
           passwordHash,
-          emailVerified: inviteToken.invitedEmail ? true : false,
+          emailVerified,
           active: true,
+          approvalStatus: "PENDING",
           formClassId: formClassId || null,
         },
         include: {
@@ -74,7 +102,7 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
         },
       });
 
-      if (inviteToken.invitedEmail) {
+      if (invitedEmail) {
         await tx.inviteToken.update({
           where: { id: inviteToken.id },
           data: { usedAt: new Date(), usedBy: user.id },
@@ -110,30 +138,14 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
       return user;
     });
 
-    let emailVerified = !!inviteToken.invitedEmail;
     if (!emailVerified) {
-      const verifiedOtp = await prisma.oTP.findFirst({
-        where: {
-          email,
-          verified: true,
-          createdAt: { gt: new Date(Date.now() - 10 * 60 * 1000) },
-        },
-      });
-      if (verifiedOtp) {
-        await prisma.user.update({
-          where: { id: result.id },
-          data: { emailVerified: true },
-        });
-        emailVerified = true;
-      } else {
-        try {
-          const code = generateOTP();
-          const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-          await prisma.oTP.create({ data: { email, code, expiresAt } });
-          await sendEmailOtp(email, name, code);
-        } catch (err: any) {
-          console.error("Failed to send verification email:", err?.message || err);
-        }
+      try {
+        const code = generateOTP();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        await prisma.oTP.create({ data: { email, code, expiresAt } });
+        await sendEmailOtp(email, name, code);
+      } catch (err: any) {
+        console.error("Failed to send verification email:", err?.message || err);
       }
     }
 
@@ -147,6 +159,18 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
+    await prisma.session.create({
+      data: {
+        userId: result.id,
+        deviceId: req.body.deviceId || crypto.randomUUID(),
+        deviceType: "web",
+        deviceName: req.body.deviceName || "Web Browser",
+        refreshToken,
+        isPrimary: true,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+
     res.status(201).json({
       message: emailVerified ? "Account created successfully" : "Account created. Please verify your email.",
       user: {
@@ -157,6 +181,7 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
         schoolId: result.schoolId,
         emailVerified,
         active: result.active,
+        approvalStatus: "PENDING",
         formClassId: result.formClassId,
         formClass: result.formClass?.name || null,
       },
