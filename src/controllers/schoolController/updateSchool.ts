@@ -11,7 +11,7 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { name, address, state, lga, schoolType, logo, admissionPattern, arms } = req.body;
+    const { name, address, state, lga, schoolType, logo, admissionPattern, arms, schoolCode } = req.body;
 
     const school = await prisma.school.findUnique({
       where: { id: req.user.schoolId },
@@ -25,6 +25,7 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
       where: { id: req.user.schoolId },
       data: {
         ...(name !== undefined ? { name } : {}),
+        ...(schoolCode !== undefined ? { schoolCode: schoolCode.toUpperCase() } : {}),
         ...(address !== undefined ? { address } : {}),
         ...(state !== undefined ? { state } : {}),
         ...(lga !== undefined ? { lga } : {}),
@@ -36,6 +37,7 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
       select: {
         id: true,
         name: true,
+        schoolCode: true,
         address: true,
         state: true,
         lga: true,

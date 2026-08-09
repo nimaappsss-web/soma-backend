@@ -6,6 +6,19 @@ export const generatePrefix = (schoolName: string): string => {
   return words.map((w) => w.charAt(0).toUpperCase()).join("");
 };
 
+export const generateSchoolCode = (schoolName: string): string => {
+  const cleaned = schoolName.replace(/[^A-Za-z0-9\s]/g, "").trim();
+  if (!cleaned) return "SCHOOL";
+  const words = cleaned.split(/\s+/);
+  if (words.length === 1) {
+    return words[0].substring(0, 4).toUpperCase();
+  }
+  return words
+    .slice(0, 4)
+    .map((w) => w.charAt(0).toUpperCase())
+    .join("");
+};
+
 export const generateAdmissionNo = (pattern: string, counter: number): string => {
   const year = new Date().getFullYear().toString();
   const seq = String(counter).padStart(3, "0");

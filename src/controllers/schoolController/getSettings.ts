@@ -25,6 +25,7 @@ export const getSettings = async (req: AuthRequest, res: Response) => {
         where: { id: req.user.schoolId },
         select: {
           name: true,
+          schoolCode: true,
           address: true,
           state: true,
           lga: true,
@@ -58,6 +59,15 @@ export const getSettings = async (req: AuthRequest, res: Response) => {
         label: "Address",
         type: "textarea",
         value: school.address,
+        category: "general",
+        editable: true,
+        editableReason: null,
+      },
+      {
+        key: "schoolCode",
+        label: "School Code",
+        type: "text",
+        value: school.schoolCode,
         category: "general",
         editable: true,
         editableReason: null,

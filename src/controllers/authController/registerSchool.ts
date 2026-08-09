@@ -5,7 +5,7 @@ import { createErrorResponse } from "../../utils/errorHandler";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { getSubjectsForSchool } from "../../data/subjects";
-import { generatePrefix } from "../../utils/admission";
+import { generatePrefix, generateSchoolCode } from "../../utils/admission";
 import { SCHOOL_CLASS_MAP } from "../../utils/classSeed";
 
 export const registerSchool = async (req: AuthRequest, res: Response) => {
@@ -14,7 +14,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { schoolName, state, lga, schoolType, logoUrl, arms } = req.body;
+    const { schoolName, state, lga, schoolType, logoUrl, arms, address, schoolCode } = req.body;
 
     const principal = await prisma.user.findUnique({
       where: { id: req.user.userId },
@@ -34,7 +34,8 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
       const school = await tx.school.create({
         data: {
           name: schoolName,
-          address: "",
+          schoolCode: schoolCode?.toUpperCase() || generateSchoolCode(schoolName),
+          address: address || "",
           state,
           lga,
           schoolType: JSON.stringify(schoolType || ["primary"]),
@@ -124,10 +125,12 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
       school: {
         id: result.school.id,
         name: result.school.name,
+        schoolCode: result.school.schoolCode,
         logo: result.school.logo,
         state: result.school.state,
         lga: result.school.lga,
         schoolType: JSON.parse(result.school.schoolType),
+        address: result.school.address,
         admissionPattern: result.school.admissionPattern,
       },
       user: {

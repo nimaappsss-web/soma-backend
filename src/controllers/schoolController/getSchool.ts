@@ -14,6 +14,7 @@ export const getSchool = async (req: AuthRequest, res: Response) => {
       select: {
         id: true,
         name: true,
+        schoolCode: true,
         address: true,
         state: true,
         lga: true,

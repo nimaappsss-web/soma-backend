@@ -15,6 +15,7 @@ datasource db {
 model School {
   id                String   @id @default(cuid())
   name              String
+  schoolCode        String?
   address           String
   state             String
   lga               String
