@@ -24,11 +24,29 @@ export const updateTeacher = async (req: AuthRequest, res: Response) => {
         schoolId,
         role: { in: ["TEACHER", "BURSAR"] },
       },
-      select: { id: true, updatedAt: true },
+      select: { id: true, updatedAt: true, email: true, emailVerified: true },
     });
 
     if (!teacher) {
       return res.status(404).json({ error: "Teacher not found" });
+    }
+
+    const nextEmail =
+      typeof email === "string" && email.trim() ? email.trim() : undefined;
+    const emailChanged =
+      nextEmail !== undefined &&
+      nextEmail.toLowerCase() !== (teacher.email ?? "").toLowerCase();
+
+    if (nextEmail !== undefined) {
+      const duplicate = await prisma.user.findFirst({
+        where: { email: nextEmail, id: { not: id } },
+        select: { id: true },
+      });
+      if (duplicate) {
+        return res.status(409).json({
+          error: "Email already in use by another user",
+        });
+      }
     }
 
     if (updatedAt) {
@@ -107,7 +125,10 @@ export const updateTeacher = async (req: AuthRequest, res: Response) => {
         where: { id },
         data: {
           ...(name !== undefined ? { name } : {}),
-          ...(email !== undefined ? { email } : {}),
+          ...(nextEmail !== undefined ? { email: nextEmail } : {}),
+          // A changed email must be re-verified by the new address owner before
+          // they can sign in again.
+          ...(emailChanged ? { emailVerified: false } : {}),
           ...(phone !== undefined ? { phone } : {}),
           ...(role !== undefined ? { role } : {}),
           ...(active !== undefined ? { active } : {}),

@@ -11,6 +11,12 @@ export const teacherTimetable = async (req: AuthRequest, res: Response) => {
 
     const { teacherId } = req.params;
 
+    // Admins can view any teacher; teachers can only view their own schedule.
+    const isAdmin = ["PRINCIPAL", "SCHOOL_ADMIN"].includes(req.user.role ?? "");
+    if (!isAdmin && req.user.userId !== teacherId) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+
     const teacher = await prisma.user.findFirst({
       where: { id: teacherId, schoolId: req.user.schoolId },
     });

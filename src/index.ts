@@ -26,6 +26,7 @@ import reportRoutes from "./routes/reports";
 import reportSettingsRoutes from "./routes/report-settings";
 import celebrationRoutes from "./routes/celebrations";
 import analyticsRoutes from "./routes/analytics";
+import subjectAssignmentsRoutes from "./routes/subject-assignments";
 
 import express, { Express, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -66,6 +67,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/report-settings", reportSettingsRoutes);
 app.use("/api/celebrations", celebrationRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/subject-assignments", subjectAssignmentsRoutes);
 
 app.use(
   "/api-docs",

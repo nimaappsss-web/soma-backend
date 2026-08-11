@@ -38,6 +38,7 @@ model School {
   examSessions       ExamSession[]
   staff              Staff[]
   timetableEntries   TimetableEntry[]
+  timetables         Timetable[]
   announcements      Announcement[]
   calendarEvents     CalendarEvent[]
   feeStructures      FeeStructure[]
@@ -225,8 +226,10 @@ model Class {
   assignmentLinks  TeacherAssignmentClass[]
   formTeachers     User[]
   timetableEntries TimetableEntry[]
+  timetables       Timetable[]
   feeStructures    FeeStructure[]
   examSessions     ExamSession[]
+  classSubjects    ClassSubject[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -252,10 +255,30 @@ model Subject {
   assignments TeacherAssignment[]
   examSessions ExamSession[]
   timetableEntries TimetableEntry[]
+  classSubjects ClassSubject[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
   @@index([syncStatus])
+}
+
+// ============= CLASS <-> SUBJECT ASSIGNMENTS =============
+
+model ClassSubject {
+  id        String   @id @default(cuid())
+  classId   String
+  subjectId String
+  schoolId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, subjectId])
+  @@index([schoolId])
+  @@index([classId])
+  @@index([subjectId])
 }
 
 // ============= STUDENTS & RECORDS =============
@@ -521,19 +544,39 @@ model Staff {
 
 // ============= TIMETABLE =============
 
-model TimetableEntry {
+model Timetable {
   id        String   @id @default(cuid())
   schoolId  String
   classId   String
-  subjectId String
-  teacherId String
-  day       String   // MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY
-  period    Int
-  startTime String
-  endTime   String
-  room      String?
+  title     String
+  breaks    Json? // [{ day, label, start, end }]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  school  School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class   Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  entries TimetableEntry[]
+
+  @@unique([schoolId, classId])
+  @@index([schoolId])
+}
+
+model TimetableEntry {
+  id          String   @id @default(cuid())
+  schoolId    String
+  classId     String
+  subjectId   String
+  teacherId   String
+  day         String   // MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY
+  period      Int
+  startTime   String
+  endTime     String
+  room        String?
+  timetableId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  timetable Timetable? @relation(fields: [timetableId], references: [id], onDelete: Cascade)
 
   school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
@@ -544,6 +587,7 @@ model TimetableEntry {
   @@index([schoolId])
   @@index([classId])
   @@index([teacherId])
+  @@index([timetableId])
 }
 
 // ============= ANNOUNCEMENTS =============

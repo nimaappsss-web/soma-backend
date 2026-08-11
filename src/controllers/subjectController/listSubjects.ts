@@ -53,7 +53,42 @@ export const listSubjects = async (req: AuthRequest, res: Response) => {
       prisma.subject.count({ where }),
     ]);
 
-    res.json({ subjects, total, page, totalPages: Math.ceil(total / limit) });
+    const subjectIds = subjects.map((s) => s.id);
+    const assignments = subjectIds.length
+      ? await prisma.teacherAssignment.findMany({
+          where: { schoolId, type: "subject", subjectId: { in: subjectIds } },
+          select: {
+            subjectId: true,
+            teacher: { select: { id: true, name: true } },
+            classes: { select: { class: { select: { id: true, name: true } } } },
+          },
+        })
+      : [];
+
+    const teachersBySubject = new Map<
+      string,
+      { id: string; name: string; classes: { id: string; name: string }[] }[]
+    >();
+    for (const a of assignments) {
+      if (!a.subjectId) continue;
+      const list = teachersBySubject.get(a.subjectId) ?? [];
+      list.push({
+        id: a.teacher.id,
+        name: a.teacher.name,
+        classes: a.classes.map((c) => c.class),
+      });
+      teachersBySubject.set(a.subjectId, list);
+    }
+
+    res.json({
+      subjects: subjects.map((s) => ({
+        ...s,
+        teachers: teachersBySubject.get(s.id) ?? [],
+      })),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "List Subjects");
     res.status(errorResponse.status).json(errorResponse);
