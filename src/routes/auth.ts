@@ -180,7 +180,7 @@ router.post("/register-principal", registerPrincipalLimiter, registerPrincipal);
  *                 type: array
  *                 items:
  *                   type: string
- *                   enum: [creche, kg, primary, secondary]
+ *                   enum: [creche, kg, primary, junior-secondary, senior-secondary, secondary]
  *               logoUrl:
  *                 type: string
  *     responses:

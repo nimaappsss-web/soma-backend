@@ -39,6 +39,7 @@ model School {
   staff              Staff[]
   timetableEntries   TimetableEntry[]
   timetables         Timetable[]
+  timetableConfigs   TimetableConfig[]
   announcements      Announcement[]
   calendarEvents     CalendarEvent[]
   feeStructures      FeeStructure[]
@@ -558,6 +559,27 @@ model Timetable {
   entries TimetableEntry[]
 
   @@unique([schoolId, classId])
+  @@index([schoolId])
+}
+
+// One shared, rigid school-day + subject configuration per school-type batch
+// (e.g. every primary class uses the "primary" config). Class.schoolType maps to
+// config.configType, so Primary 1–6 automatically share one configuration.
+model TimetableConfig {
+  id            String   @id @default(cuid())
+  schoolId      String
+  configType    String // primary | kg | creche | secondary | custom
+  name          String // e.g. "Primary School Configuration"
+  schedule      Json // DayPeriodBlock[] (day blocks + breaks)
+  subjectIds    Json // string[]
+  targets       Json // Record<subjectId, weeklyPeriods>
+  doublePeriods Json // { subjectId, days }[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, configType])
   @@index([schoolId])
 }
 

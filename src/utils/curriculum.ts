@@ -292,6 +292,9 @@ const LEVELS_BY_TYPE: Record<string, string[]> = {
   creche: ["Creche 1", "Creche 2"],
   kg: ["KG 1", "KG 2"],
   primary: ["Pry 1", "Pry 2", "Pry 3", "Pry 4", "Pry 5", "Pry 6"],
+  "junior-secondary": ["JSS 1", "JSS 2", "JSS 3"],
+  "senior-secondary": ["SS 1", "SS 2", "SS 3"],
+  // Legacy: pre-split "secondary" schools cover the full JSS + SS range.
   secondary: ["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"],
 };
 

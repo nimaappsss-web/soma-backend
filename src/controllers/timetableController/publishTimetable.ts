@@ -7,6 +7,7 @@ import {
   findBusyTeachers,
   findConflicts,
   resolveSubjectTeacher,
+  validateAgainstConfig,
   type BreakInput,
 } from "../../utils/timetable";
 
@@ -45,6 +46,17 @@ export const publishTimetable = async (req: AuthRequest, res: Response) => {
     });
     if (!classExists) {
       return res.status(404).json({ error: "Class not found" });
+    }
+
+    // Rigid config compliance: the class's batch configuration dictates which
+    // subjects appear and the exact period grid. Any drift (off-grid times or a
+    // subject outside the config) is rejected so teacher-presence stays clean.
+    const config = await prisma.timetableConfig.findFirst({
+      where: { schoolId: req.user.schoolId, configType: classExists.schoolType },
+    });
+    const configErrors = validateAgainstConfig(entries, config ?? undefined);
+    if (configErrors.length > 0) {
+      return res.status(422).json({ error: "Entries do not match the class configuration", details: configErrors });
     }
 
     // Resolve teacher per subject (auto-attach) and validate duplicates.

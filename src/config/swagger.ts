@@ -38,7 +38,7 @@ const options: swaggerJsdoc.Options = {
             name: { type: "string" },
             state: { type: "string" },
             lga: { type: "string" },
-            schoolType: { type: "string", description: "JSON string array: e.g. [\"primary\",\"secondary\"]" },
+            schoolType: { type: "string", description: "JSON string array: e.g. [\"primary\",\"junior-secondary\",\"senior-secondary\"]" },
           },
         },
         User: {

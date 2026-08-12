@@ -9,6 +9,17 @@ export const SCHOOL_CLASS_MAP: Record<string, { name: string; level: string }[]>
     { name: "Pry 5", level: "Pry 5" },
     { name: "Pry 6", level: "Pry 6" },
   ],
+  "junior-secondary": [
+    { name: "JSS 1", level: "JSS 1" },
+    { name: "JSS 2", level: "JSS 2" },
+    { name: "JSS 3", level: "JSS 3" },
+  ],
+  "senior-secondary": [
+    { name: "SS 1", level: "SS 1" },
+    { name: "SS 2", level: "SS 2" },
+    { name: "SS 3", level: "SS 3" },
+  ],
+  // Legacy: pre-split "secondary" schools seed the full JSS + SS range.
   secondary: [
     { name: "JSS 1", level: "JSS 1" },
     { name: "JSS 2", level: "JSS 2" },
@@ -25,7 +36,8 @@ export const SCHOOL_CLASS_MAP: Record<string, { name: string; level: string }[]>
  */
 export const inferSchoolTypeFromLevel = (level: string, schoolTypes: string[]): string => {
   const upper = String(level).toUpperCase();
-  if (/^(JSS|SS)/.test(upper)) return "secondary";
+  if (/^JSS/.test(upper)) return "junior-secondary";
+  if (/^SS/.test(upper)) return "senior-secondary";
   if (/^KG/.test(upper)) return "kg";
   if (/^PRY/.test(upper)) return "primary";
   if (/^CRE/.test(upper)) return "creche";

@@ -21,6 +21,17 @@ export const getTimetableBuild = async (req: AuthRequest, res: Response) => {
 
     const subjects = await getClassSubjectsWithTeachers(req.user.schoolId, classId);
 
+    // Legacy classes predate the junior/senior split; "secondary" resolves to
+    // the junior-secondary batch configuration.
+    const effectiveType =
+      classInfo.schoolType === "secondary" ? "junior-secondary" : classInfo.schoolType;
+
+    const config = effectiveType
+      ? await prisma.timetableConfig.findFirst({
+          where: { schoolId: req.user.schoolId, configType: effectiveType },
+        })
+      : null;
+
     const existing = await prisma.timetable.findFirst({
       where: { schoolId: req.user.schoolId, classId },
     });
@@ -36,6 +47,17 @@ export const getTimetableBuild = async (req: AuthRequest, res: Response) => {
 
     res.json({
       class: { id: classInfo.id, name: classInfo.name },
+      config: config
+        ? {
+            id: config.id,
+            configType: config.configType,
+            name: config.name,
+            schedule: config.schedule,
+            subjectIds: config.subjectIds,
+            targets: config.targets,
+            doublePeriods: config.doublePeriods,
+          }
+        : null,
       subjects,
       breaks: (existing?.breaks as unknown as { day: string; label: string; start: string; end: string }[] | null) ?? [],
       title: existing?.title ?? "",

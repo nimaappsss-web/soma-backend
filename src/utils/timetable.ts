@@ -165,3 +165,70 @@ export const findConflicts = (
   }
   return conflicts;
 };
+
+export interface ConfigValidationError {
+  day: string;
+  period?: number;
+  reason: string;
+}
+
+/**
+ * Rigid config compliance: every published entry must use a subject from the
+ * config's subject set and land exactly on the config's period grid (day,
+ * period, startTime, endTime). This is what keeps teacher-presence math clean —
+ * a class can never drift to off-grid minutes. Returns [] when compliant.
+ */
+export const validateAgainstConfig = (
+  entries: Array<{
+    subjectId: string;
+    day: string;
+    period: number;
+    startTime: string;
+    endTime: string;
+  }>,
+  config?: {
+    subjectIds: unknown;
+    schedule?: unknown;
+  },
+): ConfigValidationError[] => {
+  const errors: ConfigValidationError[] = [];
+  if (!config) return errors;
+
+  const allowed = new Set<string>((config.subjectIds as string[] | null) ?? []);
+
+  // Build day -> period grid from the config's DayPeriodBlock[].
+  const blocks = Array.isArray(config.schedule) ? (config.schedule as any[]) : [];
+  const periodCount = new Map<string, number>();
+  const periodTimes = new Map<string, Array<{ startTime: string; endTime: string }>>();
+  for (const b of blocks) {
+    const days: string[] = Array.isArray(b?.days) ? b.days : [];
+    const count = Number(b?.periodCount) || 0;
+    const times: Array<{ startTime: string; endTime: string }> = Array.isArray(b?.periods)
+      ? b.periods
+      : [];
+    for (const d of days) {
+      periodCount.set(d, Math.max(periodCount.get(d) ?? 0, count));
+      if (times.length) periodTimes.set(d, times);
+    }
+  }
+
+  for (const e of entries) {
+    if (!allowed.has(e.subjectId)) {
+      errors.push({ day: e.day, period: e.period, reason: "subject-not-in-config" });
+      continue;
+    }
+    const max = periodCount.get(e.day);
+    if (max && (e.period < 1 || e.period > max)) {
+      errors.push({ day: e.day, period: e.period, reason: "period-out-of-range" });
+      continue;
+    }
+    const times = periodTimes.get(e.day);
+    if (times && times[e.period - 1]) {
+      const t = times[e.period - 1];
+      if (t.startTime !== e.startTime || t.endTime !== e.endTime) {
+        errors.push({ day: e.day, period: e.period, reason: "time-mismatch" });
+      }
+    }
+  }
+  return errors;
+};
