@@ -28,52 +28,87 @@ export const ensureParentUser = async (
         ? { email: parentEmail }
         : { phone: normalizedPhone },
   });
-  if (existing) return existing;
 
   // Auto-create the parent account so the parent shows up immediately (not null).
   // No password yet — the parent verifies by logging in with a one-time code.
-  const user = await prisma.user.create({
-    data: {
-      name: parentName || "Parent",
-      email: parentEmail || undefined,
-      phone: normalizedPhone || undefined,
-      role: "PARENT",
+  const user =
+    existing ??
+    (await prisma.user.create({
+      data: {
+        name: parentName || "Parent",
+        email: parentEmail || undefined,
+        phone: normalizedPhone || undefined,
+        role: "PARENT",
+        schoolId,
+        active: true,
+      },
+    }));
+
+  // Reuse a still-pending invite for this parent (same contact) instead of
+  // stacking duplicate tokens when a second child shares the email/phone.
+  const existingInvite = await prisma.inviteToken.findFirst({
+    where: {
       schoolId,
-      active: true,
+      role: "PARENT",
+      usedAt: null,
+      OR: [
+        ...(parentEmail ? [{ invitedEmail: parentEmail }] : []),
+        ...(normalizedPhone ? [{ invitedPhone: normalizedPhone }] : []),
+      ],
     },
+    orderBy: { createdAt: "desc" },
   });
 
-  const token = generateSecureToken();
+  const emailChanged =
+    parentEmail != null &&
+    parentEmail !== undefined &&
+    existingInvite?.invitedEmail !== parentEmail;
 
-  await prisma.inviteToken.create({
-    data: {
-      schoolId,
-      invitedBy,
-      token,
-      invitedEmail: parentEmail || undefined,
-      invitedPhone: normalizedPhone || undefined,
-      invitedName: parentName,
-      role: "PARENT",
-      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
-    },
-  });
+  let invite = existingInvite;
+  let inviteCreated = false;
 
-  if (parentEmail) {
+  if (!invite) {
+    invite = await prisma.inviteToken.create({
+      data: {
+        schoolId,
+        invitedBy,
+        token: generateSecureToken(),
+        invitedEmail: parentEmail || undefined,
+        invitedPhone: normalizedPhone || undefined,
+        invitedName: parentName,
+        role: "PARENT",
+        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      },
+    });
+    inviteCreated = true;
+  } else if (emailChanged) {
+    invite = await prisma.inviteToken.update({
+      where: { id: invite.id },
+      data: { invitedEmail: parentEmail, invitedName: parentName },
+    });
+  }
+
+  // Deliver the invite when it is brand new, the email address just changed,
+  // or a previous delivery attempt failed — otherwise avoid re-sending on
+  // every call (e.g. repeated student edits).
+  const shouldSend = inviteCreated || invite.emailFailed || emailChanged;
+
+  if (parentEmail && shouldSend) {
     // Fire-and-forget — don't block response. The template builds the link
     // (with email/phone prefill) from the token.
-    trySendParentEmail(parentEmail, school?.name || "School", parentName, studentName, token, parentEmail, normalizedPhone).then(
+    trySendParentEmail(parentEmail, school?.name || "School", parentName, studentName, invite.token, parentEmail, normalizedPhone).then(
       (result) => {
         if (!result.ok) {
           prisma.inviteToken
-            .update({ where: { token }, data: { emailFailed: true, emailError: result.error } })
+            .update({ where: { id: invite.id }, data: { emailFailed: true, emailError: result.error } })
             .catch(() => {});
         }
       },
     );
-  } else if (normalizedPhone) {
+  } else if (normalizedPhone && shouldSend) {
     const delivery = await sendBrandedWhatsAppMessage(
       cleanPhoneNumber(normalizedPhone),
-      parentInviteWhatsAppMessage(school?.name || "School", parentName, studentName, token, undefined, normalizedPhone),
+      parentInviteWhatsAppMessage(school?.name || "School", parentName, studentName, invite.token, undefined, normalizedPhone),
       { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
     );
     if (!delivery.ok) {

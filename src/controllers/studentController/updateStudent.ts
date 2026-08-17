@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { localPhoneNumber } from "../../utils/whatsapp";
 import { sendParentInviteEmail } from "../../utils/email";
+import { ensureParentUser } from "../../utils/parentUser";
 
 export const updateStudent = async (req: AuthRequest, res: Response) => {
   try {
@@ -128,6 +129,19 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
               console.error("Failed to send parent invite email after edit:", err?.message || err);
             }
           }
+        } else if (updated.parentEmail || updated.parentPhone) {
+          // No pending invite exists for this parent yet (e.g. the student was
+          // created without contact info, or the original invite creation never
+          // happened). Create the parent account + invite and deliver it now so
+          // a student with a parent email always ends up with a working invite.
+          await ensureParentUser(
+            req.user.schoolId,
+            req.user.userId,
+            updated.parentName || student.parentName || "Parent",
+            updated.name,
+            updated.parentEmail,
+            updated.parentPhone || student.parentPhone,
+          );
         }
       } catch (err: any) {
         console.error("Failed to sync parent invite:", err?.message || err);
