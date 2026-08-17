@@ -6,6 +6,7 @@ import { generateAdmissionNo } from "../../utils/admission";
 import { generateSecureToken } from "../../utils/tokens";
 import { trySendParentEmail } from "../../utils/email";
 import { localPhoneNumber } from "../../utils/whatsapp";
+import { normalizePersonName } from "../../utils/personName";
 
 export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
   try {
@@ -150,7 +151,7 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
         dateOfBirth: s.dateOfBirth ? new Date(s.dateOfBirth) : null,
         address: s.address || null,
         imageUrl: s.imageUrl || null,
-        parentName: s.parentName || null,
+        parentName: normalizePersonName(s.parentName) || null,
         parentPhone: s.parentPhone ? localPhoneNumber(s.parentPhone) : null,
         parentEmail: s.parentEmail || null,
         ...(s.updatedAt ? { updatedAt: new Date(s.updatedAt) } : {}),
@@ -216,7 +217,7 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
       if (toCreateUsers.length > 0) {
         await prisma.user.createMany({
           data: toCreateUsers.map((p) => ({
-            name: p.parentName || p.name || "Parent",
+            name: normalizePersonName(p.parentName) || p.name || "Parent",
             email: p.parentEmail || undefined,
             phone: p.parentPhone ? localPhoneNumber(p.parentPhone) : undefined,
             role: "PARENT" as const,
@@ -235,7 +236,7 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
         token: generateSecureToken(),
         invitedEmail: p.parentEmail || undefined,
         invitedPhone: p.parentPhone ? localPhoneNumber(p.parentPhone) : undefined,
-        invitedName: p.parentName || p.name,
+        invitedName: normalizePersonName(p.parentName) || p.name,
         role: "PARENT" as const,
         expiresAt: new Date(now + 48 * 60 * 60 * 1000),
       }));

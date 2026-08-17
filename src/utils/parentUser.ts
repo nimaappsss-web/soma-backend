@@ -4,6 +4,7 @@ import { trySendParentEmail } from "./email";
 import { sendBrandedWhatsAppMessage } from "./whatsappClient";
 import { cleanPhoneNumber, localPhoneNumber } from "./whatsapp";
 import { parentInviteWhatsAppMessage, SOMA_WHITE_LOGO } from "./whatsappTemplates";
+import { normalizePersonName } from "./personName";
 
 export const ensureParentUser = async (
   schoolId: string,
@@ -15,6 +16,7 @@ export const ensureParentUser = async (
 ) => {
   if (!parentEmail && !parentPhone) return null;
 
+  const cleanName = normalizePersonName(parentName) || "Parent";
   const normalizedPhone = parentPhone ? localPhoneNumber(parentPhone) : undefined;
 
   const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } });
@@ -35,7 +37,7 @@ export const ensureParentUser = async (
     existing ??
     (await prisma.user.create({
       data: {
-        name: parentName || "Parent",
+        name: cleanName,
         email: parentEmail || undefined,
         phone: normalizedPhone || undefined,
         role: "PARENT",
@@ -75,7 +77,7 @@ export const ensureParentUser = async (
         token: generateSecureToken(),
         invitedEmail: parentEmail || undefined,
         invitedPhone: normalizedPhone || undefined,
-        invitedName: parentName,
+        invitedName: cleanName,
         role: "PARENT",
         expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
       },
@@ -84,7 +86,7 @@ export const ensureParentUser = async (
   } else if (emailChanged) {
     invite = await prisma.inviteToken.update({
       where: { id: invite.id },
-      data: { invitedEmail: parentEmail, invitedName: parentName },
+      data: { invitedEmail: parentEmail, invitedName: cleanName },
     });
   }
 
@@ -96,7 +98,7 @@ export const ensureParentUser = async (
   if (parentEmail && shouldSend) {
     // Fire-and-forget — don't block response. The template builds the link
     // (with email/phone prefill) from the token.
-    trySendParentEmail(parentEmail, school?.name || "School", parentName, studentName, invite.token, parentEmail, normalizedPhone).then(
+    trySendParentEmail(parentEmail, school?.name || "School", cleanName, studentName, invite.token, parentEmail, normalizedPhone).then(
       (result) => {
         if (!result.ok) {
           prisma.inviteToken
@@ -108,7 +110,7 @@ export const ensureParentUser = async (
   } else if (normalizedPhone && shouldSend) {
     const delivery = await sendBrandedWhatsAppMessage(
       cleanPhoneNumber(normalizedPhone),
-      parentInviteWhatsAppMessage(school?.name || "School", parentName, studentName, invite.token, undefined, normalizedPhone),
+      parentInviteWhatsAppMessage(school?.name || "School", cleanName, studentName, invite.token, undefined, normalizedPhone),
       { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
     );
     if (!delivery.ok) {

@@ -5,6 +5,7 @@ import { createErrorResponse } from "../../utils/errorHandler";
 import { localPhoneNumber } from "../../utils/whatsapp";
 import { sendParentInviteEmail } from "../../utils/email";
 import { ensureParentUser } from "../../utils/parentUser";
+import { normalizePersonName } from "../../utils/personName";
 
 export const updateStudent = async (req: AuthRequest, res: Response) => {
   try {
@@ -55,7 +56,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
         ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null } : {}),
         ...(address !== undefined ? { address } : {}),
         ...(imageUrl !== undefined ? { imageUrl } : {}),
-        ...(parentName !== undefined ? { parentName } : {}),
+        ...(parentName !== undefined ? { parentName: normalizePersonName(parentName) || null } : {}),
         ...(parentPhone !== undefined ? { parentPhone: parentPhone ? localPhoneNumber(parentPhone) : null } : {}),
         ...(parentEmail !== undefined ? { parentEmail } : {}),
         ...(status !== undefined ? { status } : {}),
@@ -119,7 +120,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
               await sendParentInviteEmail(
                 updated.parentEmail,
                 school?.name || "School",
-                updated.parentName || student.parentName || "Parent",
+                normalizePersonName(updated.parentName || student.parentName) || "Parent",
                 updated.name,
                 matching.token,
                 updated.parentEmail,
@@ -137,7 +138,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
           await ensureParentUser(
             req.user.schoolId,
             req.user.userId,
-            updated.parentName || student.parentName || "Parent",
+            normalizePersonName(updated.parentName || student.parentName) || "Parent",
             updated.name,
             updated.parentEmail,
             updated.parentPhone || student.parentPhone,

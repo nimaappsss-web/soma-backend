@@ -5,6 +5,7 @@ import { createErrorResponse } from "../../utils/errorHandler";
 import { generateAdmissionNo } from "../../utils/admission";
 import { ensureParentUser } from "../../utils/parentUser";
 import { localPhoneNumber } from "../../utils/whatsapp";
+import { normalizePersonName } from "../../utils/personName";
 
 export const createStudent = async (req: AuthRequest, res: Response) => {
   try {
@@ -57,7 +58,7 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         address: address || null,
         imageUrl: imageUrl || null,
-        parentName: parentName || null,
+        parentName: normalizePersonName(parentName) || null,
         parentPhone: parentPhone ? localPhoneNumber(parentPhone) : null,
         parentEmail: parentEmail || null,
         ...(updatedAt ? { updatedAt: new Date(updatedAt) } : {}),
@@ -86,7 +87,7 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    await ensureParentUser(schoolId, req.user!.userId, parentName || name, name, parentEmail, parentPhone);
+    await ensureParentUser(schoolId, req.user!.userId, normalizePersonName(parentName) || name, name, parentEmail, parentPhone);
 
     res.status(201).json({ student });
   } catch (error: any) {
