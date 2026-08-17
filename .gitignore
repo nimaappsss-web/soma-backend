@@ -11,3 +11,5 @@ dist/
 *.swo
 
 /src/generated/prisma
+
+.wa-session/

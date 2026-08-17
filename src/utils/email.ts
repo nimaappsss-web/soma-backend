@@ -42,11 +42,13 @@ export const sendTeacherInviteEmail = async (
   to: string,
   schoolName: string,
   token: string,
+  email?: string | null,
+  phone?: string | null,
 ) => {
   await sendViaSendGrid(
     to,
     `You're Invited to Join ${schoolName} on Nima`,
-    teacherInviteHtml(schoolName, token),
+    teacherInviteHtml(schoolName, token, email, phone),
   );
 };
 
@@ -56,13 +58,15 @@ export const sendParentInviteEmail = async (
   parentName: string,
   studentName: string,
   token: string,
+  email?: string | null,
+  phone?: string | null,
 ) => {
-  if (process.env.DISABLE_EMAILS) return;
+  if (process.env.DISABLE_EMAILS === "true") return;
 
   await sendViaSendGrid(
     to,
     `Your child has been registered at ${schoolName}`,
-    parentInviteHtml(schoolName, parentName, studentName, token),
+    parentInviteHtml(schoolName, parentName, studentName, token, email, phone),
   );
 };
 
@@ -72,14 +76,16 @@ export const trySendParentEmail = async (
   parentName: string,
   studentName: string,
   token: string,
+  email?: string | null,
+  phone?: string | null,
 ): Promise<{ ok: boolean; error?: string }> => {
-  if (process.env.DISABLE_EMAILS) return { ok: true };
+  if (process.env.DISABLE_EMAILS === "true") return { ok: true };
 
   try {
     await sendViaSendGrid(
       to,
       `Your child has been registered at ${schoolName}`,
-      parentInviteHtml(schoolName, parentName, studentName, token),
+      parentInviteHtml(schoolName, parentName, studentName, token, email, phone),
     );
     return { ok: true };
   } catch (err: any) {
@@ -104,7 +110,7 @@ export const sendPasswordResetEmail = async (
   name: string,
   token: string,
 ) => {
-  if (process.env.DISABLE_EMAILS) return;
+  if (process.env.DISABLE_EMAILS === "true") return;
 
   await sendViaSendGrid(
     to,

@@ -13,7 +13,7 @@ export const listFeeStructures = async (req: AuthRequest, res: Response) => {
     const { classId, term, session } = req.query;
 
     const where: any = { schoolId: req.user.schoolId };
-    if (classId) where.classId = classId;
+    if (classId) where.classIds = { array_contains: [classId] };
     if (term) where.term = term;
     if (session) where.session = session;
     if (term && !session) {
@@ -22,11 +22,22 @@ export const listFeeStructures = async (req: AuthRequest, res: Response) => {
 
     const feeStructures = await prisma.feeStructure.findMany({
       where,
-      include: { class: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
     });
 
-    res.json({ feeStructures: feeStructures.map((f) => ({ ...f, className: f.class.name })) });
+    const classIds = Array.from(new Set(feeStructures.flatMap((f) => (f.classIds as string[]) ?? [])));
+    const classes = classIds.length > 0
+      ? await prisma.class.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true } })
+      : [];
+    const classMap = Object.fromEntries(classes.map((c) => [c.id, c.name]));
+
+    res.json({
+      feeStructures: feeStructures.map((f) => ({
+        ...f,
+        classIds: (f.classIds as string[]) ?? [],
+        classNames: ((f.classIds as string[]) ?? []).map((cid) => classMap[cid] ?? "Unknown"),
+      })),
+    });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "List Fee Structures");
     res.status(errorResponse.status).json(errorResponse);

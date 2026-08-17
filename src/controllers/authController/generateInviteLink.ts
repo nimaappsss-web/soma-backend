@@ -3,6 +3,9 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
+import { cleanPhoneNumber } from "../../utils/whatsapp";
+import { teacherInviteWhatsAppMessage, staffInviteWhatsAppMessage, SOMA_WHITE_LOGO } from "../../utils/whatsappTemplates";
 
 export const generateInviteLink = async (req: AuthRequest, res: Response) => {
   try {
@@ -10,7 +13,7 @@ export const generateInviteLink = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { role } = req.body as { role?: string };
+    const { role, phone } = req.body as { role?: string; phone?: string };
 
     const school = await prisma.school.findUnique({
       where: { id: req.user.schoolId },
@@ -39,6 +42,21 @@ export const generateInviteLink = async (req: AuthRequest, res: Response) => {
 
     const baseUrl = process.env.FRONTEND_URL || "https://app.nimaschool.com";
     const link = `${baseUrl}/register?token=${token}`;
+
+    if (phone) {
+      const normalizedRole = (role || "TEACHER").toUpperCase();
+      const message = normalizedRole === "STAFF"
+        ? staffInviteWhatsAppMessage(school.name, token, undefined, phone)
+        : teacherInviteWhatsAppMessage(school.name, token, undefined, phone);
+      const delivery = await sendBrandedWhatsAppMessage(
+        cleanPhoneNumber(phone),
+        message,
+        { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
+      );
+      if (!delivery.ok) {
+        console.warn(`[generateInviteLink] WhatsApp delivery failed for ${phone}: ${delivery.error}`);
+      }
+    }
 
     res.status(201).json({
       token,

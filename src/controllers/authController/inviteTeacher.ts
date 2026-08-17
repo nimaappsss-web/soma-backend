@@ -5,6 +5,9 @@ import { validateEmail } from "../../utils/validation";
 import { generateSecureToken } from "../../utils/tokens";
 import { sendTeacherInviteEmail } from "../../utils/email";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
+import { cleanPhoneNumber } from "../../utils/whatsapp";
+import { teacherInviteWhatsAppMessage, SOMA_WHITE_LOGO } from "../../utils/whatsappTemplates";
 
 export const inviteTeacher = async (req: AuthRequest, res: Response) => {
   try {
@@ -22,7 +25,7 @@ export const inviteTeacher = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "No school registered yet" });
     }
 
-    const { teacherEmail, role } = req.body;
+    const { teacherEmail, role, teacherPhone } = req.body;
 
     if (!teacherEmail) {
       return res.status(400).json({ error: "Teacher email is required" });
@@ -82,15 +85,27 @@ export const inviteTeacher = async (req: AuthRequest, res: Response) => {
     });
 
     try {
-      await sendTeacherInviteEmail(teacherEmail, school.name, token);
+      await sendTeacherInviteEmail(teacherEmail, school.name, token, teacherEmail, teacherPhone);
     } catch (err: any) {
       console.error("Failed to send invite email:", err?.message || err);
+    }
+
+    if (teacherPhone) {
+      const delivery = await sendBrandedWhatsAppMessage(
+        cleanPhoneNumber(teacherPhone),
+        teacherInviteWhatsAppMessage(school.name, token, teacherEmail, teacherPhone),
+        { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
+      );
+      if (!delivery.ok) {
+        console.warn(`[inviteTeacher] WhatsApp delivery failed for ${teacherPhone}: ${delivery.error}`);
+      }
     }
 
     res.status(201).json({
       message: "Invite sent successfully",
       invite: {
         teacherEmail,
+        teacherPhone: teacherPhone || undefined,
         role: role || "TEACHER",
         expiresAt,
       },

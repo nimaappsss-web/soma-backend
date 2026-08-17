@@ -5,6 +5,7 @@ import { createErrorResponse } from "../../utils/errorHandler";
 import { generateAdmissionNo } from "../../utils/admission";
 import { generateSecureToken } from "../../utils/tokens";
 import { trySendParentEmail } from "../../utils/email";
+import { localPhoneNumber } from "../../utils/whatsapp";
 
 export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
   try {
@@ -150,7 +151,7 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
         address: s.address || null,
         imageUrl: s.imageUrl || null,
         parentName: s.parentName || null,
-        parentPhone: s.parentPhone || null,
+        parentPhone: s.parentPhone ? localPhoneNumber(s.parentPhone) : null,
         parentEmail: s.parentEmail || null,
         ...(s.updatedAt ? { updatedAt: new Date(s.updatedAt) } : {}),
         ...(s.syncStatus ? { syncStatus: s.syncStatus } : {}),
@@ -174,10 +175,13 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
     });
 
     // --- Batch parent invite processing ---
-    const parentEntries = toCreate.filter((s) => s.parentEmail || s.parentPhone);
+    const parentInvitesDisabled = process.env.DISABLE_BULK_PARENT_INVITES === "true";
+    const parentEntries = parentInvitesDisabled
+      ? []
+      : toCreate.filter((s) => s.parentEmail || s.parentPhone);
 
     if (parentEntries.length > 0) {
-      // Deduplicate by email (prefer email over phone)
+      // Deduplicate by contact (prefer email over phone)
       const uniqueParents = new Map<string, (typeof parentEntries)[0]>();
       for (const p of parentEntries) {
         const key = p.parentEmail || p.parentPhone;
@@ -185,64 +189,92 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
       }
 
       const uniqueParentList = [...uniqueParents.values()];
-      const emails = uniqueParentList.map((p) => p.parentEmail).filter(Boolean) as string[];
 
       // Skip parents who already have a user account
-      const existingUsers = emails.length > 0
-        ? await prisma.user.findMany({
-            where: { email: { in: emails } },
-            select: { email: true },
-          })
-        : [];
-      const existingEmailSet = new Set(existingUsers.map((u) => u.email));
+      const emails = uniqueParentList.map((p) => p.parentEmail).filter(Boolean) as string[];
+      const phones = uniqueParentList
+        .map((p) => (p.parentPhone ? localPhoneNumber(p.parentPhone) : null))
+        .filter(Boolean) as string[];
+      const [existingByEmail, existingByPhone] = await Promise.all([
+        emails.length > 0
+          ? prisma.user.findMany({ where: { email: { in: emails } }, select: { email: true, phone: true } })
+          : Promise.resolve([]),
+        phones.length > 0
+          ? prisma.user.findMany({ where: { phone: { in: phones } }, select: { email: true, phone: true } })
+          : Promise.resolve([]),
+      ]);
+      const existingEmailSet = new Set(existingByEmail.map((u) => u.email));
+      const existingPhoneSet = new Set(existingByPhone.map((u) => u.phone));
 
-      const emailParents = uniqueParentList.filter(
-        (p) => p.parentEmail && !existingEmailSet.has(p.parentEmail),
+      // Auto-create accounts for parents that don't have one yet (they verify by logging in with a one-time code)
+      const toCreateUsers = uniqueParentList.filter(
+        (p) =>
+          !(p.parentEmail && existingEmailSet.has(p.parentEmail)) &&
+          !(p.parentPhone && existingPhoneSet.has(localPhoneNumber(p.parentPhone))),
       );
 
-      if (emailParents.length > 0) {
-        const now = Date.now();
-
-        // Create invite tokens in bulk (1 query) — no user created upfront
-        const inviteData = emailParents.map((p) => ({
-          schoolId,
-          invitedBy: req.user!.userId,
-          token: generateSecureToken(),
-          invitedEmail: p.parentEmail!,
-          invitedName: p.parentName || p.name,
-          role: "PARENT" as const,
-          expiresAt: new Date(now + 48 * 60 * 60 * 1000),
-        }));
-
-        await prisma.inviteToken.createMany({ data: inviteData });
-
-        // Fire all emails concurrently (fire-and-forget)
-        if (process.env.DISABLE_EMAILS !== "true") {
-          Promise.allSettled(
-            inviteData.map((inv) => {
-              const parent = emailParents.find((p) => p.parentEmail === inv.invitedEmail);
-              return trySendParentEmail(
-                inv.invitedEmail,
-                school.name || "School",
-                inv.invitedName,
-                parent?.name || "Student",
-                inv.token,
-              ).then((result) => {
-                if (!result.ok) {
-                  prisma.inviteToken
-                    .update({
-                      where: { token: inv.token },
-                      data: { emailFailed: true, emailError: result.error },
-                    })
-                    .catch(() => {});
-                }
-              });
-            }),
-          );
-        }
+      if (toCreateUsers.length > 0) {
+        await prisma.user.createMany({
+          data: toCreateUsers.map((p) => ({
+            name: p.parentName || p.name || "Parent",
+            email: p.parentEmail || undefined,
+            phone: p.parentPhone ? localPhoneNumber(p.parentPhone) : undefined,
+            role: "PARENT" as const,
+            schoolId,
+            active: true,
+          })),
+        });
       }
 
-      // TODO: SMS for phone-only parents — batch SMS integration pending
+      const now = Date.now();
+
+      // Create invite tokens for parents we need to notify (skip those who already had an account)
+      const inviteData = toCreateUsers.map((p) => ({
+        schoolId,
+        invitedBy: req.user!.userId,
+        token: generateSecureToken(),
+        invitedEmail: p.parentEmail || undefined,
+        invitedPhone: p.parentPhone ? localPhoneNumber(p.parentPhone) : undefined,
+        invitedName: p.parentName || p.name,
+        role: "PARENT" as const,
+        expiresAt: new Date(now + 48 * 60 * 60 * 1000),
+      }));
+
+      if (inviteData.length > 0) {
+        await prisma.inviteToken.createMany({ data: inviteData });
+
+        // Fire emails concurrently (fire-and-forget)
+        if (process.env.DISABLE_EMAILS !== "true") {
+          const emailInvites = inviteData.filter((i) => i.invitedEmail);
+          if (emailInvites.length > 0) {
+            Promise.allSettled(
+              emailInvites.map((inv) => {
+                const parent = toCreateUsers.find((p) => p.parentEmail === inv.invitedEmail);
+                return trySendParentEmail(
+                  inv.invitedEmail!,
+                  school.name || "School",
+                  inv.invitedName || "Parent",
+                  parent?.name || "Student",
+                  inv.token,
+                  inv.invitedEmail,
+                  inv.invitedPhone,
+                ).then((result) => {
+                  if (!result.ok) {
+                    prisma.inviteToken
+                      .update({
+                        where: { token: inv.token },
+                        data: { emailFailed: true, emailError: result.error },
+                      })
+                      .catch(() => {});
+                  }
+                });
+              }),
+            );
+          }
+        }
+
+        // TODO: SMS/WhatsApp for phone-only parents — batch WhatsApp integration pending
+      }
     }
 
     res.status(201).json({

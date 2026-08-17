@@ -25,6 +25,10 @@ model School {
   admissionCounter  Int      @default(1)
   arms              String   @default("[]")
   principalId       String?  @unique
+  paymentMode       String   @default("manual") // manual | paystack | both
+  manualBankDetails Json?    // { bankName, accountName, accountNumber }
+  paystackSurchargePercent Float @default(0)
+  paystackSurchargeFlat     Float @default(0)
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -50,6 +54,7 @@ model School {
   scoreComponents    ScoreComponent[]
   scoreSchemes       ScoreScheme[]
   gradeScales        GradeScale[]
+  notifications      Notification[]
   principal          User?     @relation("SchoolPrincipal", fields: [principalId], references: [id], onDelete: SetNull)
 
   @@index([principalId])
@@ -81,6 +86,7 @@ model User {
   resetTokens       PasswordResetToken[]
   sessions          Session[]
   timetableEntries  TimetableEntry[]
+  notifications     Notification[]
 
   @@index([schoolId])
   @@index([role])
@@ -228,7 +234,6 @@ model Class {
   formTeachers     User[]
   timetableEntries TimetableEntry[]
   timetables       Timetable[]
-  feeStructures    FeeStructure[]
   examSessions     ExamSession[]
   classSubjects    ClassSubject[]
 
@@ -651,37 +656,61 @@ model CalendarEvent {
   @@index([date])
 }
 
+// ============= NOTIFICATIONS =============
+
+model Notification {
+  id        String   @id @default(cuid())
+  schoolId  String
+  userId    String
+  title     String
+  message   String
+  type      String   // ANNOUNCEMENT, CALENDAR_EVENT, HOLIDAY, ATTENDANCE, INVITE, EXAM
+  route     String?  // deep link destination, e.g. /teach/announcements
+  data      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
 // ============= FINANCE =============
 
 model FeeStructure {
   id           String   @id @default(cuid())
   schoolId     String
-  classId      String
+  classIds     Json     // array of class ids this structure applies to
   term         String
   session      String
   name         String
   amount       Float
+  items        Json?
   isCompulsory Boolean  @default(true)
   createdAt    DateTime @default(now())
 
   school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  class    Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
   invoices Invoice[]
 
   @@index([schoolId])
-  @@index([classId])
 }
 
 model Invoice {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   schoolId        String
   studentId       String
   feeStructureId  String
   amount          Float
-  status          String   @default("UNPAID") // UNPAID, PARTIAL, PAID
+  items           Json?
+  issuedByName    String?
+  status          String    @default("UNPAID") // UNPAID, PARTIAL, PAID
   dueDate         DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -694,23 +723,30 @@ model Invoice {
 }
 
 model Payment {
-  id        String   @id @default(cuid())
-  schoolId  String
-  invoiceId String
-  studentId String
-  amount    Float
-  method    String   // CASH, TRANSFER, POS, ONLINE
-  reference String?
-  recordedBy String
-  createdAt DateTime @default(now())
+  id             String    @id @default(cuid())
+  schoolId       String
+  invoiceId      String
+  studentId      String
+  amount         Float
+  method         String    // CASH, TRANSFER, POS, ONLINE
+  reference      String?
+  recordedBy     String
+  status         String    @default("CONFIRMED") // PENDING, CONFIRMED, REJECTED
+  submittedAt    DateTime?
+  confirmedAt    DateTime?
+  rejectedReason String?
+  receiptNo      String?
+  createdAt      DateTime  @default(now())
 
   school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
+  @@unique([schoolId, reference])
   @@index([schoolId])
   @@index([invoiceId])
   @@index([studentId])
+  @@index([status])
 }
 
 // ============= REPORTS =============

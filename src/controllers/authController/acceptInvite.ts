@@ -7,6 +7,7 @@ import { generateAccessToken, generateRefreshToken, verifyRegistrationToken } fr
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendEmailOtp } from "../../utils/email";
 import { generateOTP } from "../../utils/tokens";
+import { notifyMany } from "../../utils/notifications";
 
 export const acceptInvite = async (req: AuthRequest, res: Response) => {
   try {
@@ -171,6 +172,8 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    notifyAdminsOfAcceptedInvite(result.schoolId, result.name, result.role);
+
     res.status(201).json({
       message: emailVerified ? "Account created successfully" : "Account created. Please verify your email.",
       user: {
@@ -191,5 +194,32 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Accept Invite");
     res.status(errorResponse.status).json(errorResponse);
+  }
+};
+
+const notifyAdminsOfAcceptedInvite = async (
+  schoolId: string | null | undefined,
+  userName: string,
+  role: string,
+) => {
+  try {
+    if (!schoolId) return;
+
+    const admins = await prisma.user.findMany({
+      where: { schoolId, role: { in: ["PRINCIPAL", "SCHOOL_ADMIN"] }, active: true },
+      select: { id: true },
+    });
+
+    if (admins.length === 0) return;
+
+    await notifyMany(schoolId, admins.map((a) => a.id), {
+      title: "New team member",
+      message: `${userName} accepted their invite as ${role.toLowerCase()}.`,
+      type: "INVITE",
+      route: "/admin/teachers",
+      data: { userName, role },
+    });
+  } catch (error) {
+    console.error("[acceptInvite] Notification fan-out failed:", error);
   }
 };

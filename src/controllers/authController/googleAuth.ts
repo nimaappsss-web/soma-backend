@@ -64,7 +64,7 @@ export const googleAuth = async (req: AuthRequest, res: Response) => {
         include: { school: { select: { name: true } } },
       });
 
-      if (!process.env.DISABLE_EMAILS) {
+      if (process.env.DISABLE_EMAILS !== "true") {
         try {
           await sendWelcomeEmail(email, name);
         } catch {

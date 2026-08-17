@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { validatePhoneNumber } from "../../utils/validation";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { localPhoneNumber } from "../../utils/whatsapp";
 
 export const verifyOTP = async (req: AuthRequest, res: Response) => {
   try {
@@ -13,9 +14,11 @@ export const verifyOTP = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "Invalid phone number format" });
     }
 
+    const normalizedPhone = localPhoneNumber(phone);
+
     const otpRecord = await prisma.oTP.findFirst({
       where: {
-        phone,
+        phone: normalizedPhone,
         code,
         verified: false,
         expiresAt: { gt: new Date() },
@@ -33,14 +36,14 @@ export const verifyOTP = async (req: AuthRequest, res: Response) => {
     });
 
     let user = await prisma.user.findFirst({
-      where: { phone },
+      where: { phone: normalizedPhone },
       include: { school: true },
     });
 
     if (!user) {
       const pendingInvite = await prisma.inviteToken.findFirst({
         where: {
-          invitedPhone: phone,
+          invitedPhone: normalizedPhone,
           usedAt: null,
           expiresAt: { gt: new Date() },
         },
@@ -55,8 +58,8 @@ export const verifyOTP = async (req: AuthRequest, res: Response) => {
 
       user = await prisma.user.create({
         data: {
-          name: phone,
-          phone,
+          name: normalizedPhone,
+          phone: normalizedPhone,
           role: pendingInvite.role,
           schoolId: pendingInvite.schoolId,
           passwordHash: null,

@@ -11,7 +11,7 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { name, address, state, lga, schoolType, logo, admissionPattern, arms, schoolCode } = req.body;
+    const { name, address, state, lga, schoolType, logo, admissionPattern, arms, schoolCode, paymentMode, manualBankDetails, paystackSurchargePercent, paystackSurchargeFlat } = req.body;
 
     const school = await prisma.school.findUnique({
       where: { id: req.user.schoolId },
@@ -33,6 +33,10 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
         ...(logo !== undefined ? { logo } : {}),
         ...(arms !== undefined ? { arms: JSON.stringify(arms) } : {}),
         ...(admissionPattern !== undefined ? { admissionPattern: /\d/.test(admissionPattern) ? exampleToPattern(admissionPattern) : admissionPattern } : {}),
+        ...(paymentMode !== undefined ? { paymentMode } : {}),
+        ...(manualBankDetails !== undefined ? { manualBankDetails } : {}),
+        ...(paystackSurchargePercent !== undefined ? { paystackSurchargePercent: Number(paystackSurchargePercent) } : {}),
+        ...(paystackSurchargeFlat !== undefined ? { paystackSurchargeFlat: Number(paystackSurchargeFlat) } : {}),
       },
       select: {
         id: true,
@@ -46,6 +50,10 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
         admissionPattern: true,
         admissionCounter: true,
         arms: true,
+        paymentMode: true,
+        manualBankDetails: true,
+        paystackSurchargePercent: true,
+        paystackSurchargeFlat: true,
       },
     });
 

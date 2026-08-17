@@ -33,6 +33,7 @@ export const inviteInfo = async (req: Request, res: Response) => {
 
     res.json({
       email: inviteToken.invitedEmail,
+      phone: inviteToken.invitedPhone,
       role: inviteToken.role,
       schoolId: inviteToken.schoolId,
       schoolName: school?.name || null,

@@ -2,6 +2,8 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { localPhoneNumber } from "../../utils/whatsapp";
+import { sendParentInviteEmail } from "../../utils/email";
 
 export const updateStudent = async (req: AuthRequest, res: Response) => {
   try {
@@ -18,6 +20,9 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
         classId: true,
         updatedAt: true,
         admissionNo: true,
+        parentEmail: true,
+        parentPhone: true,
+        parentName: true,
       },
     });
 
@@ -50,7 +55,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
         ...(address !== undefined ? { address } : {}),
         ...(imageUrl !== undefined ? { imageUrl } : {}),
         ...(parentName !== undefined ? { parentName } : {}),
-        ...(parentPhone !== undefined ? { parentPhone } : {}),
+        ...(parentPhone !== undefined ? { parentPhone: parentPhone ? localPhoneNumber(parentPhone) : null } : {}),
         ...(parentEmail !== undefined ? { parentEmail } : {}),
         ...(status !== undefined ? { status } : {}),
       },
@@ -74,6 +79,60 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
         version: true,
       },
     });
+
+    // Sync any pending parent invite with the updated contact info.
+    // Match the invite by the phone it was created with (the old phone).
+    if (parentEmail !== undefined || parentPhone !== undefined) {
+      try {
+        const matching = await prisma.inviteToken.findFirst({
+          where: {
+            schoolId: req.user.schoolId,
+            role: "PARENT",
+            usedAt: null,
+            OR: [
+              { invitedPhone: student.parentPhone || "___none___" },
+              { invitedPhone: updated.parentPhone || "___none___" },
+            ],
+          },
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (matching) {
+          await prisma.inviteToken.update({
+            where: { id: matching.id },
+            data: {
+              ...(parentEmail !== undefined ? { invitedEmail: updated.parentEmail } : {}),
+              ...(parentPhone !== undefined ? { invitedPhone: updated.parentPhone } : {}),
+              ...(parentName !== undefined ? { invitedName: updated.parentName } : {}),
+            },
+          });
+
+          // Email is the priority — if an email was just added (or changed) on a
+          // pending invite, actually send the invite to it.
+          if (updated.parentEmail && updated.parentEmail !== student.parentEmail) {
+            const school = await prisma.school.findUnique({
+              where: { id: req.user.schoolId },
+              select: { name: true },
+            });
+            try {
+              await sendParentInviteEmail(
+                updated.parentEmail,
+                school?.name || "School",
+                updated.parentName || student.parentName || "Parent",
+                updated.name,
+                matching.token,
+                updated.parentEmail,
+                updated.parentPhone || student.parentPhone,
+              );
+            } catch (err: any) {
+              console.error("Failed to send parent invite email after edit:", err?.message || err);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("Failed to sync parent invite:", err?.message || err);
+      }
+    }
 
     // Log class transfer to timeline
     if (classId !== undefined && classId !== oldClassId) {

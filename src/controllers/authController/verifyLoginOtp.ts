@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { validateEmail, validatePhoneNumber } from "../../utils/validation";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { localPhoneNumber } from "../../utils/whatsapp";
 
 export const verifyLoginOtp = async (req: AuthRequest, res: Response) => {
   try {
@@ -20,8 +21,10 @@ export const verifyLoginOtp = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "Invalid phone number or email format" });
     }
 
+    const phone = isPhone ? localPhoneNumber(identifier) : undefined;
+
     const otp = await prisma.oTP.findFirst({
-      where: isEmail ? { email: identifier, code, verified: false } : { phone: identifier, code, verified: false },
+      where: isEmail ? { email: identifier, code, verified: false } : { phone, code, verified: false },
     });
 
     if (!otp) {
@@ -35,7 +38,7 @@ export const verifyLoginOtp = async (req: AuthRequest, res: Response) => {
     await prisma.oTP.update({ where: { id: otp.id }, data: { verified: true } });
 
     const user = await prisma.user.findFirst({
-      where: isEmail ? { email: identifier } : { phone: identifier },
+      where: isEmail ? { email: identifier } : { phone },
       include: { school: { select: { name: true } } },
     });
 

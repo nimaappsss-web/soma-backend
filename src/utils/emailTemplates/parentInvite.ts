@@ -1,8 +1,15 @@
 import { baseLayout } from "./baseTemplate";
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+import { buildInviteUrl } from "../inviteLink";
 
-export const parentInviteHtml = (schoolName: string, parentName: string, studentName: string, token: string) => {
-  const acceptUrl = `${FRONTEND_URL}/accept-parent-invite?token=${token}`;
+export const parentInviteHtml = (
+  schoolName: string,
+  parentName: string,
+  studentName: string,
+  token: string,
+  email?: string | null,
+  phone?: string | null,
+) => {
+  const acceptUrl = buildInviteUrl("/accept-parent-invite", token, { email, phone });
 
   return baseLayout(`
   <tr>

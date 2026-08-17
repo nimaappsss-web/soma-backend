@@ -1,6 +1,9 @@
 import { prisma } from "./prisma";
 import { generateSecureToken } from "./tokens";
 import { trySendParentEmail } from "./email";
+import { sendBrandedWhatsAppMessage } from "./whatsappClient";
+import { cleanPhoneNumber, localPhoneNumber } from "./whatsapp";
+import { parentInviteWhatsAppMessage, SOMA_WHITE_LOGO } from "./whatsappTemplates";
 
 export const ensureParentUser = async (
   schoolId: string,
@@ -12,48 +15,71 @@ export const ensureParentUser = async (
 ) => {
   if (!parentEmail && !parentPhone) return null;
 
+  const normalizedPhone = parentPhone ? localPhoneNumber(parentPhone) : undefined;
+
+  const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } });
+
+  // Reuse an existing account (matched by email or phone) so multiple children
+  // with the same contact all resolve to it via Student.parentPhone/parentEmail.
+  const existing = await prisma.user.findFirst({
+    where: parentEmail && normalizedPhone
+      ? { OR: [{ email: parentEmail }, { phone: normalizedPhone }] }
+      : parentEmail
+        ? { email: parentEmail }
+        : { phone: normalizedPhone },
+  });
+  if (existing) return existing;
+
+  // Auto-create the parent account so the parent shows up immediately (not null).
+  // No password yet — the parent verifies by logging in with a one-time code.
+  const user = await prisma.user.create({
+    data: {
+      name: parentName || "Parent",
+      email: parentEmail || undefined,
+      phone: normalizedPhone || undefined,
+      role: "PARENT",
+      schoolId,
+      active: true,
+    },
+  });
+
+  const token = generateSecureToken();
+
+  await prisma.inviteToken.create({
+    data: {
+      schoolId,
+      invitedBy,
+      token,
+      invitedEmail: parentEmail || undefined,
+      invitedPhone: normalizedPhone || undefined,
+      invitedName: parentName,
+      role: "PARENT",
+      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+    },
+  });
+
   if (parentEmail) {
-    const existing = await prisma.user.findFirst({ where: { email: parentEmail } });
-    if (existing) return existing;
-
-    const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } });
-    const token = generateSecureToken();
-    const frontendUrl = process.env.FRONTEND_URL || "https://soma-frontend-zeta.vercel.app";
-    const link = `${frontendUrl}/parent/setup?token=${token}&email=${encodeURIComponent(parentEmail)}`;
-
-    const invite = await prisma.inviteToken.create({
-      data: {
-        schoolId,
-        invitedBy,
-        token,
-        invitedEmail: parentEmail,
-        invitedName: parentName,
-        role: "PARENT",
-        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
-      },
-    });
-
-    // Fire-and-forget — don't block response
-    trySendParentEmail(parentEmail, school?.name || "School", parentName, studentName, link).then(
+    // Fire-and-forget — don't block response. The template builds the link
+    // (with email/phone prefill) from the token.
+    trySendParentEmail(parentEmail, school?.name || "School", parentName, studentName, token, parentEmail, normalizedPhone).then(
       (result) => {
         if (!result.ok) {
-          prisma.inviteToken.update({
-            where: { id: invite.id },
-            data: { emailFailed: true, emailError: result.error },
-          }).catch(() => {});
+          prisma.inviteToken
+            .update({ where: { token }, data: { emailFailed: true, emailError: result.error } })
+            .catch(() => {});
         }
       },
     );
-  } else if (parentPhone) {
-    try {
-      const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } });
-      const frontendUrl = process.env.FRONTEND_URL || "https://soma-frontend-zeta.vercel.app";
-      // TODO: Send SMS with link to set up parent account
-      console.log(`Parent ${parentPhone} registered at ${school?.name}. SMS integration pending.`);
-    } catch (err: any) {
-      console.error("Failed to notify parent via SMS:", err?.message || err);
+  } else if (normalizedPhone) {
+    const delivery = await sendBrandedWhatsAppMessage(
+      cleanPhoneNumber(normalizedPhone),
+      parentInviteWhatsAppMessage(school?.name || "School", parentName, studentName, token, undefined, normalizedPhone),
+      { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
+    );
+    if (!delivery.ok) {
+      console.warn(`[ensureParentUser] WhatsApp delivery failed for ${normalizedPhone}: ${delivery.error}`);
     }
   }
 
-  return null;
+  return user;
 };

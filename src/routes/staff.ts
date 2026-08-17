@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { listStaff, createStaff, staffDetails, updateStaff, deleteStaff, inviteStaff } from "../controllers/staffController";
+import { listStaff, createStaff, staffDetails, updateStaff, deleteStaff, inviteStaff, resendInvite } from "../controllers/staffController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
 
 const router = Router();
@@ -7,6 +7,7 @@ const router = Router();
 router.get("/", authenticateToken, requireAdmin(), listStaff);
 router.post("/", authenticateToken, requireAdmin(), createStaff);
 router.post("/invite", authenticateToken, requireAdmin(), inviteStaff);
+router.post("/:id/resend-invite", authenticateToken, requireAdmin(), resendInvite);
 router.get("/:id", authenticateToken, requireAdmin(), staffDetails);
 router.patch("/:id", authenticateToken, requireAdmin(), updateStaff);
 router.delete("/:id", authenticateToken, requireAdmin(), deleteStaff);

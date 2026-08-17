@@ -5,6 +5,9 @@ import { validateEmail } from "../../utils/validation";
 import { generateSecureToken } from "../../utils/tokens";
 import { sendTeacherInviteEmail } from "../../utils/email";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
+import { cleanPhoneNumber } from "../../utils/whatsapp";
+import { teacherInviteWhatsAppMessage, SOMA_WHITE_LOGO } from "../../utils/whatsappTemplates";
 
 export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
   try {
@@ -105,6 +108,7 @@ export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
         invitedEmail: t.teacherEmail,
         invitedName: "Teacher",
         role: t.role || "TEACHER",
+        phone: t.teacherPhone || null,
         expiresAt: new Date(now + 48 * 60 * 60 * 1000),
       }));
 
@@ -124,11 +128,25 @@ export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
       select: { id: true, token: true, invitedEmail: true, role: true, expiresAt: true },
     });
 
-    // --- Fire all emails concurrently (fire-and-forget errors) ---
+    const inviteByToken = new Map(inviteData.map((i) => [i.token, i]));
+
+    // --- Fire all emails + WhatsApp concurrently (fire-and-forget errors) ---
     Promise.allSettled(
       createdInvites.map((inv) => {
-        return sendTeacherInviteEmail(inv.invitedEmail!, school.name, inv.token).catch((err) => {
+        const row = inviteByToken.get(inv.token);
+        return sendTeacherInviteEmail(inv.invitedEmail!, school.name, inv.token, inv.invitedEmail!, row?.phone).catch((err) => {
           console.error("Failed to send invite email:", err?.message || err);
+        }).then(async () => {
+          if (row?.phone) {
+            const delivery = await sendBrandedWhatsAppMessage(
+              cleanPhoneNumber(row.phone),
+              teacherInviteWhatsAppMessage(school.name, inv.token, inv.invitedEmail!, row.phone),
+              { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
+            );
+            if (!delivery.ok) {
+              console.warn(`[bulkInviteTeachers] WhatsApp delivery failed for ${row.phone}: ${delivery.error}`);
+            }
+          }
         });
       }),
     );

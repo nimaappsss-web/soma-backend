@@ -3,6 +3,9 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import crypto from "crypto";
+import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
+import { cleanPhoneNumber, localPhoneNumber } from "../../utils/whatsapp";
+import { parentInviteWhatsAppMessage, SOMA_WHITE_LOGO } from "../../utils/whatsappTemplates";
 
 export const inviteParent = async (req: AuthRequest, res: Response) => {
   try {
@@ -10,7 +13,7 @@ export const inviteParent = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { name, email, studentId } = req.body;
+    const { name, email, phone, studentId } = req.body;
 
     if (!name || !email || !studentId) {
       return res.status(400).json({ error: "name, email, and studentId are required" });
@@ -53,14 +56,32 @@ export const inviteParent = async (req: AuthRequest, res: Response) => {
       data: {
         parentName: name,
         parentEmail: email,
+        ...(phone ? { parentPhone: localPhoneNumber(phone) } : {}),
       },
     });
+
+    const school = await prisma.school.findUnique({
+      where: { id: req.user.schoolId },
+      select: { name: true },
+    });
+
+    if (phone) {
+      const delivery = await sendBrandedWhatsAppMessage(
+        cleanPhoneNumber(phone),
+        parentInviteWhatsAppMessage(school?.name || "School", name, student.name, token, email, phone),
+        { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
+      );
+      if (!delivery.ok) {
+        console.warn(`[inviteParent] WhatsApp delivery failed for ${phone}: ${delivery.error}`);
+      }
+    }
 
     res.status(201).json({
       invite: {
         id: invite.id,
         invitedName: name,
         invitedEmail: email,
+        invitedPhone: phone || undefined,
         role: "PARENT",
         expiresAt,
       },

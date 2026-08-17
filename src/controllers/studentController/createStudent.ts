@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { generateAdmissionNo } from "../../utils/admission";
 import { ensureParentUser } from "../../utils/parentUser";
+import { localPhoneNumber } from "../../utils/whatsapp";
 
 export const createStudent = async (req: AuthRequest, res: Response) => {
   try {
@@ -57,7 +58,7 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
         address: address || null,
         imageUrl: imageUrl || null,
         parentName: parentName || null,
-        parentPhone: parentPhone || null,
+        parentPhone: parentPhone ? localPhoneNumber(parentPhone) : null,
         parentEmail: parentEmail || null,
         ...(updatedAt ? { updatedAt: new Date(updatedAt) } : {}),
         ...(syncStatus ? { syncStatus } : {}),

@@ -4,6 +4,9 @@ import { prisma } from "../../utils/prisma";
 import { generateSecureToken } from "../../utils/tokens";
 import { trySendParentEmail } from "../../utils/email";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
+import { cleanPhoneNumber } from "../../utils/whatsapp";
+import { parentInviteWhatsAppMessage, SOMA_WHITE_LOGO } from "../../utils/whatsappTemplates";
 
 export const resendParentInvite = async (req: AuthRequest, res: Response) => {
   try {
@@ -26,10 +29,6 @@ export const resendParentInvite = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: "Parent invite not found or already used" });
     }
 
-    if (!invite.invitedEmail) {
-      return res.status(400).json({ error: "No email associated with this invite" });
-    }
-
     const school = await prisma.school.findUnique({
       where: { id: req.user.schoolId },
       select: { name: true, id: true },
@@ -47,19 +46,36 @@ export const resendParentInvite = async (req: AuthRequest, res: Response) => {
       data: { token: newToken, expiresAt, emailFailed: false, emailError: null },
     });
 
-    // Fire-and-forget
-    trySendParentEmail(invite.invitedEmail, school.name, invite.invitedName || "Parent", "your child", newToken).then(
-      (result) => {
-        if (!result.ok) {
-          prisma.inviteToken.update({
-            where: { id: invite.id },
-            data: { emailFailed: true, emailError: result.error },
-          }).catch(() => {});
-        }
-      },
-    );
+    if (!invite.invitedEmail && !invite.invitedPhone) {
+      return res.status(400).json({ error: "No email or phone associated with this invite" });
+    }
 
-    res.json({ message: "Parent invite resent", expiresAt });
+    // Email is the priority; WhatsApp is the fallback when no email exists
+    if (invite.invitedEmail) {
+      trySendParentEmail(invite.invitedEmail, school.name, invite.invitedName || "Parent", "your child", newToken, invite.invitedEmail, invite.invitedPhone).then(
+        (result) => {
+          if (!result.ok) {
+            prisma.inviteToken.update({
+              where: { id: invite.id },
+              data: { emailFailed: true, emailError: result.error },
+            }).catch(() => {});
+          }
+        },
+      );
+
+      return res.json({ message: "Parent invite resent via email", expiresAt });
+    }
+
+    const delivery = await sendBrandedWhatsAppMessage(
+      cleanPhoneNumber(invite.invitedPhone!),
+      parentInviteWhatsAppMessage(school.name, invite.invitedName || "Parent", "your child", newToken, undefined, invite.invitedPhone),
+      { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
+    );
+    if (!delivery.ok) {
+      console.warn(`[resendParentInvite] WhatsApp delivery failed for ${invite.invitedPhone}: ${delivery.error}`);
+    }
+
+    res.json({ message: "Parent invite resent via WhatsApp", expiresAt });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Resend Parent Invite");
     res.status(errorResponse.status).json(errorResponse);

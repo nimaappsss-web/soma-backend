@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { hashPassword, validatePassword } from "../../utils/password";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { localPhoneNumber } from "../../utils/whatsapp";
 
 export const acceptParentInvite = async (req: AuthRequest, res: Response) => {
   try {
@@ -39,13 +40,20 @@ export const acceptParentInvite = async (req: AuthRequest, res: Response) => {
     }
 
     const email = inviteToken.invitedEmail;
-    if (!email) {
-      return res.status(400).json({ error: "No email associated with this invite" });
+    const phone = inviteToken.invitedPhone;
+    if (!email && !phone) {
+      return res.status(400).json({ error: "No email or phone associated with this invite" });
     }
+
+    const normalizedPhone = phone ? localPhoneNumber(phone) : undefined;
 
     // Check if user already exists (was created by an older version or another flow)
     const existingUser = await prisma.user.findFirst({
-      where: { email },
+      where: email && normalizedPhone
+        ? { OR: [{ email }, { phone: normalizedPhone }] }
+        : email
+          ? { email }
+          : { phone: normalizedPhone },
     });
 
     if (existingUser && existingUser.passwordHash) {
@@ -61,7 +69,8 @@ export const acceptParentInvite = async (req: AuthRequest, res: Response) => {
         user = await tx.user.create({
           data: {
             name: name || inviteToken.invitedName || "Parent",
-            email,
+            email: email || undefined,
+            phone: normalizedPhone || undefined,
             role: "PARENT",
             schoolId: inviteToken.schoolId,
             passwordHash,

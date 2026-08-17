@@ -11,18 +11,17 @@ export const financeSummary = async (req: AuthRequest, res: Response) => {
 
     const schoolId = req.user.schoolId;
 
-    const [totalExpected, totalCollected, byClass, recentPayments] = await Promise.all([
+    const [totalExpected, totalCollected, feeStructures, recentPayments] = await Promise.all([
       prisma.invoice.aggregate({ where: { schoolId }, _sum: { amount: true } }),
-      prisma.payment.aggregate({ where: { schoolId }, _sum: { amount: true } }),
-      prisma.feeStructure.groupBy({
-        by: ["classId"],
+      prisma.payment.aggregate({ where: { schoolId, status: "CONFIRMED" }, _sum: { amount: true } }),
+      prisma.feeStructure.findMany({
         where: { schoolId },
-        _sum: { amount: true },
+        select: { classIds: true, amount: true },
       }),
       prisma.payment.findMany({
-        where: { schoolId },
+        where: { schoolId, status: "CONFIRMED" },
         include: { student: { select: { id: true, name: true } } },
-        orderBy: { createdAt: "desc" },
+        orderBy: { confirmedAt: "desc" },
         take: 10,
       }),
     ]);
@@ -32,25 +31,50 @@ export const financeSummary = async (req: AuthRequest, res: Response) => {
     const outstanding = expected - collected;
     const collectionRate = expected > 0 ? Math.round((collected / expected) * 100) : 0;
 
-    const classIds = byClass.map((c) => c.classId);
+    const expectedByClassMap: Record<string, number> = {};
+    for (const fee of feeStructures) {
+      const feeClassIds = (fee.classIds as string[]) ?? [];
+      for (const cid of feeClassIds) {
+        expectedByClassMap[cid] = (expectedByClassMap[cid] || 0) + (fee.amount || 0);
+      }
+    }
+
+    const classIds = Object.keys(expectedByClassMap);
     const classes = classIds.length > 0
       ? await prisma.class.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true } })
       : [];
     const classMap = Object.fromEntries(classes.map((c) => [c.id, c.name]));
+
+    const collectedByClass = await prisma.payment.groupBy({
+      by: ["studentId"],
+      where: { schoolId, status: "CONFIRMED" },
+      _sum: { amount: true },
+    });
+    const studentsWithClass = await prisma.student.findMany({
+      where: { id: { in: collectedByClass.map((c) => c.studentId) } },
+      select: { id: true, classId: true },
+    });
+    const studentClassMap = Object.fromEntries(studentsWithClass.map((s) => [s.id, s.classId]));
+    const collectedByClassMap: Record<string, number> = {};
+    for (const row of collectedByClass) {
+      const clsId = studentClassMap[row.studentId];
+      if (!clsId) continue;
+      collectedByClassMap[clsId] = (collectedByClassMap[clsId] || 0) + (row._sum.amount || 0);
+    }
 
     res.json({
       totalExpected: expected,
       totalCollected: collected,
       outstanding,
       collectionRate,
-      byClass: byClass.map((c) => ({
-        className: classMap[c.classId] || "Unknown",
-        expected: c._sum.amount || 0,
-        collected: 0,
-        outstanding: c._sum.amount || 0,
+      byClass: classIds.map((cid) => ({
+        className: classMap[cid] || "Unknown",
+        expected: expectedByClassMap[cid] || 0,
+        collected: collectedByClassMap[cid] || 0,
+        outstanding: (expectedByClassMap[cid] || 0) - (collectedByClassMap[cid] || 0),
       })),
       recentPayments: recentPayments.map((p) => ({
-        date: p.createdAt,
+        date: p.confirmedAt ?? p.createdAt,
         studentName: p.student.name,
         amount: p.amount,
         method: p.method,

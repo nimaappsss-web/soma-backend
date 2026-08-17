@@ -42,6 +42,7 @@ export const listParents = async (req: AuthRequest, res: Response) => {
           id: true,
           token: true,
           invitedEmail: true,
+          invitedPhone: true,
           invitedName: true,
           emailFailed: true,
           emailError: true,
@@ -52,7 +53,16 @@ export const listParents = async (req: AuthRequest, res: Response) => {
       }),
     ]);
 
-    // Pending invites and active users are disjoint sets (invite-only, no user created upfront)
+    // Parents are now auto-created when a student is added, so a pending invite
+    // only lingers if the parent hasn't set up a password yet. Skip invites that
+    // already have a matching active user to avoid duplicates.
+    const activeEmails = new Set(activeParents.map((p) => p.email).filter(Boolean));
+    const activePhones = new Set(activeParents.map((p) => p.phone).filter(Boolean));
+    const unresolvedInvites = pendingInvites.filter((i) => {
+      if (i.invitedEmail && activeEmails.has(i.invitedEmail)) return false;
+      if (i.invitedPhone && activePhones.has(i.invitedPhone)) return false;
+      return true;
+    });
 
     // Fetch linked students for active parents (by email or phone)
     const parentEmails = activeParents.map((p) => p.email).filter(Boolean) as string[];
@@ -86,47 +96,75 @@ export const listParents = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Fetch linked students for pending invites (by invitedEmail)
-    const inviteEmails = pendingInvites.map((i) => i.invitedEmail).filter(Boolean) as string[];
-    const inviteStudents = inviteEmails.length > 0
+    // Fetch linked students for unresolved pending invites (by email or phone)
+    const inviteEmails = unresolvedInvites.map((i) => i.invitedEmail).filter(Boolean) as string[];
+    const invitePhones = unresolvedInvites.map((i) => i.invitedPhone).filter(Boolean) as string[];
+    const inviteStudents = inviteEmails.length > 0 || invitePhones.length > 0
       ? await prisma.student.findMany({
-          where: { schoolId, parentEmail: { in: inviteEmails } },
-          select: { id: true, parentEmail: true, name: true, admissionNo: true },
+          where: {
+            schoolId,
+            OR: [
+              ...(inviteEmails.length > 0 ? [{ parentEmail: { in: inviteEmails } }] : []),
+              ...(invitePhones.length > 0 ? [{ parentPhone: { in: invitePhones } }] : []),
+            ],
+          },
+          select: { id: true, parentEmail: true, parentPhone: true, name: true, admissionNo: true },
         })
       : [];
     const studentsByInviteEmail = new Map<string, { id: string; name: string; admissionNo: string }[]>();
+    const studentsByInvitePhone = new Map<string, { id: string; name: string; admissionNo: string }[]>();
     for (const s of inviteStudents) {
+      const entry = { id: s.id, name: s.name, admissionNo: s.admissionNo };
       if (s.parentEmail) {
         const list = studentsByInviteEmail.get(s.parentEmail) || [];
-        list.push({ id: s.id, name: s.name, admissionNo: s.admissionNo });
+        list.push(entry);
         studentsByInviteEmail.set(s.parentEmail, list);
+      }
+      if (s.parentPhone) {
+        const list = studentsByInvitePhone.get(s.parentPhone) || [];
+        list.push(entry);
+        studentsByInvitePhone.set(s.parentPhone, list);
       }
     }
 
     const now = Date.now();
 
-    const activeMapped = activeParents.map((p) => ({
-      id: p.id,
-      name: p.name,
-      email: p.email,
-      phone: p.phone,
-      emailVerified: p.emailVerified,
-      hasAccount: !!p.passwordHash,
-      status: "active" as const,
-      students: (p.email ? studentsByEmail.get(p.email) : studentsByPhone.get(p.phone || "")) || [],
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-    }));
+    // Build a lookup of unused invites by email/phone so auto-created parents
+    // who haven't set up a password yet can still resend their invite link.
+    const inviteByEmail = new Map<string, string>();
+    const inviteByPhone = new Map<string, string>();
+    for (const i of pendingInvites) {
+      if (i.invitedEmail && !inviteByEmail.has(i.invitedEmail)) inviteByEmail.set(i.invitedEmail, i.id);
+      if (i.invitedPhone && !inviteByPhone.has(i.invitedPhone)) inviteByPhone.set(i.invitedPhone, i.id);
+    }
 
-    const pendingMapped = pendingInvites.map((i) => ({
+    const activeMapped = activeParents.map((p) => {
+      const inviteId =
+        !p.passwordHash && (p.email ? inviteByEmail.get(p.email) : p.phone ? inviteByPhone.get(p.phone) : undefined);
+      return {
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        phone: p.phone,
+        emailVerified: p.emailVerified,
+        hasAccount: !!p.passwordHash,
+        inviteId: inviteId || undefined,
+        status: "active" as const,
+        students: (p.email ? studentsByEmail.get(p.email) : studentsByPhone.get(p.phone || "")) || [],
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      };
+    });
+
+    const pendingMapped = unresolvedInvites.map((i) => ({
       id: i.id,
       name: i.invitedName || "",
       email: i.invitedEmail,
-      phone: null,
+      phone: i.invitedPhone,
       emailVerified: false,
       hasAccount: false,
       status: "pending" as const,
-      students: studentsByInviteEmail.get(i.invitedEmail || "") || [],
+      students: (i.invitedEmail ? studentsByInviteEmail.get(i.invitedEmail) : studentsByInvitePhone.get(i.invitedPhone || "")) || [],
       invitedAt: i.createdAt,
       expiresAt: i.expiresAt,
       expiresIn: Math.max(0, Math.floor((i.expiresAt.getTime() - now) / 1000)),

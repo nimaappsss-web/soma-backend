@@ -15,6 +15,11 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "studentId, feeStructureId, and amount are required" });
     }
 
+    const feeStructure = await prisma.feeStructure.findFirst({
+      where: { id: feeStructureId, schoolId: req.user.schoolId },
+      select: { items: true, amount: true },
+    });
+
     const invoice = await prisma.invoice.create({
       data: {
         id: req.body.id || undefined,
@@ -22,6 +27,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
         studentId,
         feeStructureId,
         amount,
+        items: feeStructure?.items ?? undefined,
         dueDate: dueDate ? new Date(dueDate) : null,
       },
     });

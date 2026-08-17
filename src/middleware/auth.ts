@@ -60,6 +60,14 @@ export const requireRole = (...roles: string[]) => {
 export const requireAdmin = () =>
   requireRole("PRINCIPAL", "SCHOOL_ADMIN");
 
+export const requireFinance = () =>
+  requireRole("PRINCIPAL", "SCHOOL_ADMIN", "BURSAR");
+
+// Read-only finance access for parents (their own children's invoices/payments)
+// plus finance staff. Write endpoints still require requireFinance().
+export const requireFinanceOrParent = () =>
+  requireRole("PRINCIPAL", "SCHOOL_ADMIN", "BURSAR", "PARENT");
+
 export const tenantIsolation = (
   req: AuthRequest,
   res: Response,

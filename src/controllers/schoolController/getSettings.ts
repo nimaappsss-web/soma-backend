@@ -6,7 +6,7 @@ import { createErrorResponse } from "../../utils/errorHandler";
 interface Setting {
   key: string;
   label: string;
-  type: "text" | "textarea" | "image" | "multi-select" | "array" | "pattern";
+  type: "text" | "textarea" | "image" | "multi-select" | "array" | "pattern" | "bank";
   value: unknown;
   options?: { label: string; value: string }[];
   category: "general" | "academic" | "admission";
@@ -33,6 +33,10 @@ export const getSettings = async (req: AuthRequest, res: Response) => {
           schoolType: true,
           arms: true,
           admissionPattern: true,
+          paymentMode: true,
+          manualBankDetails: true,
+          paystackSurchargePercent: true,
+          paystackSurchargeFlat: true,
         },
       }),
       prisma.student.count({ where: { schoolId: req.user.schoolId } }),
@@ -135,6 +139,47 @@ export const getSettings = async (req: AuthRequest, res: Response) => {
         type: "pattern",
         value: school.admissionPattern,
         category: "admission",
+        editable: true,
+        editableReason: null,
+      },
+      {
+        key: "paymentMode",
+        label: "Payment Mode",
+        type: "text",
+        value: school.paymentMode,
+        category: "academic",
+        editable: true,
+        editableReason: null,
+        options: [
+          { label: "Manual (bank transfer, bursar-confirmed)", value: "manual" },
+          { label: "Paystack", value: "paystack" },
+          { label: "Both", value: "both" },
+        ],
+      },
+      {
+        key: "manualBankDetails",
+        label: "Manual Bank Details",
+        type: "bank",
+        value: school.manualBankDetails,
+        category: "academic",
+        editable: true,
+        editableReason: null,
+      },
+      {
+        key: "paystackSurchargePercent",
+        label: "Paystack Surcharge (%)",
+        type: "text",
+        value: school.paystackSurchargePercent,
+        category: "academic",
+        editable: true,
+        editableReason: null,
+      },
+      {
+        key: "paystackSurchargeFlat",
+        label: "Paystack Surcharge (₦ flat)",
+        type: "text",
+        value: school.paystackSurchargeFlat,
+        category: "academic",
         editable: true,
         editableReason: null,
       },

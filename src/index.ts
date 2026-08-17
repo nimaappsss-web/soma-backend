@@ -27,6 +27,9 @@ import reportSettingsRoutes from "./routes/report-settings";
 import celebrationRoutes from "./routes/celebrations";
 import analyticsRoutes from "./routes/analytics";
 import subjectAssignmentsRoutes from "./routes/subject-assignments";
+import notificationRoutes from "./routes/notifications";
+import whatsappRoutes from "./routes/whatsapp";
+import { startSseHeartbeat } from "./utils/sse";
 
 import express, { Express, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -68,6 +71,8 @@ app.use("/api/report-settings", reportSettingsRoutes);
 app.use("/api/celebrations", celebrationRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/subject-assignments", subjectAssignmentsRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/whatsapp", whatsappRoutes);
 
 app.use(
   "/api-docs",
@@ -86,7 +91,13 @@ app.listen(port, () => {
     `API Documentation available at http://localhost:${port}/api-docs`,
   );
 
+  startSseHeartbeat();
+
   if (!process.env.SENDGRID_API_KEY) {
     console.error("WARNING: SENDGRID_API_KEY not set — email sending will fail");
   }
+
+  import("./utils/whatsappClient")
+    .then(({ initWhatsApp }) => initWhatsApp())
+    .catch((err) => console.error("Failed to init WhatsApp client:", err?.message || err));
 });

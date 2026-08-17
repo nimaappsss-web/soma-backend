@@ -43,7 +43,7 @@ export const resendInvite = async (req: AuthRequest, res: Response) => {
 
     if (invite.invitedEmail) {
       try {
-        await sendTeacherInviteEmail(invite.invitedEmail, school.name, newToken);
+        await sendTeacherInviteEmail(invite.invitedEmail, school.name, newToken, invite.invitedEmail, invite.invitedPhone);
       } catch (err: any) {
         console.error("Failed to resend invite email:", err?.message || err);
       }

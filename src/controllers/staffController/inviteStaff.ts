@@ -3,6 +3,9 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import crypto from "crypto";
+import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
+import { cleanPhoneNumber } from "../../utils/whatsapp";
+import { staffInviteWhatsAppMessage, SOMA_WHITE_LOGO } from "../../utils/whatsappTemplates";
 
 export const inviteStaff = async (req: AuthRequest, res: Response) => {
   try {
@@ -24,6 +27,8 @@ export const inviteStaff = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "A user with this email already exists" });
     }
 
+    const invitedRole = (role || "STAFF").toUpperCase();
+
     const staff = await prisma.staff.create({
       data: {
         id: req.body.id || undefined,
@@ -31,7 +36,7 @@ export const inviteStaff = async (req: AuthRequest, res: Response) => {
         name,
         email,
         phone: phone || null,
-        role: role || "STAFF",
+        role: invitedRole,
         department: department || null,
         designation: designation || null,
         status: "INVITED",
@@ -49,10 +54,25 @@ export const inviteStaff = async (req: AuthRequest, res: Response) => {
         token,
         invitedName: name,
         invitedEmail: email,
-        role: "STAFF",
+        role: invitedRole,
         expiresAt,
       },
     });
+
+    if (phone) {
+      const school = await prisma.school.findUnique({
+        where: { id: req.user.schoolId },
+        select: { name: true },
+      });
+      const delivery = await sendBrandedWhatsAppMessage(
+        cleanPhoneNumber(phone),
+        staffInviteWhatsAppMessage(school?.name || "School", token, email, phone),
+        { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
+      );
+      if (!delivery.ok) {
+        console.warn(`[inviteStaff] WhatsApp delivery failed for ${phone}: ${delivery.error}`);
+      }
+    }
 
     res.status(201).json({ staff });
   } catch (error) {

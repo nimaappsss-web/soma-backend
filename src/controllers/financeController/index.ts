@@ -1,7 +1,15 @@
 export { listFeeStructures } from "./listFeeStructures";
 export { createFeeStructure } from "./createFeeStructure";
+export { updateFeeStructure } from "./updateFeeStructure";
+export { deleteFeeStructure } from "./deleteFeeStructure";
 export { listInvoices } from "./listInvoices";
 export { createInvoice } from "./createInvoice";
+export { bulkGenerateInvoices } from "./bulkGenerateInvoices";
+export { getInvoiceDetail } from "./getInvoiceDetail";
 export { listPayments } from "./listPayments";
 export { recordPayment } from "./recordPayment";
+export { confirmPayment } from "./confirmPayment";
+export { rejectPayment } from "./rejectPayment";
+export { listReceipts } from "./listReceipts";
+export { sendInvoiceReminders } from "./sendInvoiceReminders";
 export { financeSummary } from "./financeSummary";

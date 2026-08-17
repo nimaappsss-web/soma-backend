@@ -3,6 +3,7 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { classifySchoolDay } from "../../utils/attendanceAvailability";
+import { notifyMany, parentUserIdsForStudents } from "../../utils/notifications";
 
 export const bulkAttendance = async (req: AuthRequest, res: Response) => {
   try {
@@ -94,8 +95,40 @@ export const bulkAttendance = async (req: AuthRequest, res: Response) => {
     }
 
     res.json({ count: results.length, records: results });
+
+    notifyParentsOfAttendance(
+      req.user.schoolId,
+      classRecord.name,
+      attendanceDate,
+      results.map((r: any) => r.studentId),
+    );
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Bulk Attendance");
     res.status(errorResponse.status).json(errorResponse);
+  }
+};
+
+const notifyParentsOfAttendance = async (
+  schoolId: string,
+  className: string,
+  date: Date,
+  studentIds: string[],
+) => {
+  try {
+    if (studentIds.length === 0) return;
+
+    const parentIds = await parentUserIdsForStudents(schoolId, studentIds);
+    if (parentIds.length === 0) return;
+
+    const dateLabel = date.toISOString().slice(0, 10);
+    await notifyMany(schoolId, parentIds, {
+      title: "Attendance updated",
+      message: `Attendance for ${className} has been updated for ${dateLabel}.`,
+      type: "ATTENDANCE",
+      route: "/parent/children",
+      data: { className, date: dateLabel },
+    });
+  } catch (error) {
+    console.error("[bulkAttendance] Notification fan-out failed:", error);
   }
 };
