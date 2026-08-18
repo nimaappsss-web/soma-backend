@@ -65,12 +65,16 @@ export const updateFeeStructure = async (req: AuthRequest, res: Response) => {
     const classMap = Object.fromEntries(classes.map((c) => [c.id, c.name]));
 
     if (classIds.length > 0) {
+      const invoiceUpdate: Record<string, unknown> = { amount: updated.amount };
+      if (items !== undefined) {
+        invoiceUpdate.items = items as unknown as Prisma.InputJsonValue;
+      }
       await prisma.invoice.updateMany({
         where: {
           feeStructureId: target.id,
           status: "UNPAID",
         },
-        data: { amount: updated.amount },
+        data: invoiceUpdate,
       });
     }
 

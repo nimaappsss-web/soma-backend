@@ -84,7 +84,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
 
     // Sync any pending parent invite with the updated contact info.
     // Match the invite by the phone it was created with (the old phone).
-    if (parentEmail !== undefined || parentPhone !== undefined) {
+    if (parentName !== undefined || parentEmail !== undefined || parentPhone !== undefined) {
       try {
         const matching = await prisma.inviteToken.findFirst({
           where: {

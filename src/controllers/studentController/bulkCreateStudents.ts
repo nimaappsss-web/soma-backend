@@ -7,6 +7,7 @@ import { generateSecureToken } from "../../utils/tokens";
 import { trySendParentEmail } from "../../utils/email";
 import { localPhoneNumber } from "../../utils/whatsapp";
 import { normalizePersonName } from "../../utils/personName";
+import { generateInvoicesForStudents } from "../../utils/generateStudentInvoices";
 
 export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
   try {
@@ -174,6 +175,13 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
       where: { schoolId, admissionNo: { in: admissionNos } },
       select: { id: true, name: true, admissionNo: true, updatedAt: true, syncStatus: true, syncedAt: true, version: true },
     });
+
+    // Auto-generate invoices from fee structures covering each student's class
+    const createdIdByAdmission = new Map(created.map((c) => [c.admissionNo, c.id]));
+    const invoiceTargets = toCreate
+      .filter((s) => createdIdByAdmission.has(s.admissionNo))
+      .map((s) => ({ id: createdIdByAdmission.get(s.admissionNo)!, classId: s.classId }));
+    await generateInvoicesForStudents(schoolId, invoiceTargets);
 
     // --- Batch parent invite processing ---
     const parentInvitesDisabled = process.env.DISABLE_BULK_PARENT_INVITES === "true";

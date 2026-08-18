@@ -6,6 +6,7 @@ import { generateAdmissionNo } from "../../utils/admission";
 import { ensureParentUser } from "../../utils/parentUser";
 import { localPhoneNumber } from "../../utils/whatsapp";
 import { normalizePersonName } from "../../utils/personName";
+import { generateInvoicesForStudents } from "../../utils/generateStudentInvoices";
 
 export const createStudent = async (req: AuthRequest, res: Response) => {
   try {
@@ -88,6 +89,8 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
     });
 
     await ensureParentUser(schoolId, req.user!.userId, normalizePersonName(parentName) || name, name, parentEmail, parentPhone);
+
+    await generateInvoicesForStudents(schoolId, [{ id: student.id, classId }]);
 
     res.status(201).json({ student });
   } catch (error: any) {

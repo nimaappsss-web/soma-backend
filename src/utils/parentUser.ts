@@ -33,9 +33,26 @@ export const ensureParentUser = async (
 
   // Auto-create the parent account so the parent shows up immediately (not null).
   // No password yet — the parent verifies by logging in with a one-time code.
-  const user =
-    existing ??
-    (await prisma.user.create({
+  // If an account already exists (matched by email/phone), attach any missing
+  // contact so a phone-created account also gets its invite email.
+  let user = existing;
+  if (existing) {
+    if (
+      (parentEmail && existing.email !== parentEmail) ||
+      (normalizedPhone && existing.phone !== normalizedPhone) ||
+      (cleanName && existing.name !== cleanName)
+    ) {
+      user = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          ...(cleanName ? { name: cleanName } : {}),
+          ...(parentEmail ? { email: parentEmail } : {}),
+          ...(normalizedPhone ? { phone: normalizedPhone } : {}),
+        },
+      });
+    }
+  } else {
+    user = await prisma.user.create({
       data: {
         name: cleanName,
         email: parentEmail || undefined,
@@ -44,7 +61,8 @@ export const ensureParentUser = async (
         schoolId,
         active: true,
       },
-    }));
+    });
+  }
 
   // Reuse a still-pending invite for this parent (same contact) instead of
   // stacking duplicate tokens when a second child shares the email/phone.

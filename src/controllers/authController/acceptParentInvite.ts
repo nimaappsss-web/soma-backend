@@ -5,6 +5,7 @@ import { hashPassword, validatePassword } from "../../utils/password";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { localPhoneNumber } from "../../utils/whatsapp";
+import { notifyMany } from "../../utils/notifications";
 
 export const acceptParentInvite = async (req: AuthRequest, res: Response) => {
   try {
@@ -81,7 +82,13 @@ export const acceptParentInvite = async (req: AuthRequest, res: Response) => {
       } else {
         user = await tx.user.update({
           where: { id: user.id },
-          data: { passwordHash, emailVerified: true },
+          data: {
+            passwordHash,
+            emailVerified: true,
+            ...(email ? { email } : {}),
+            ...(normalizedPhone ? { phone: normalizedPhone } : {}),
+            ...(name || inviteToken.invitedName ? { name: name || inviteToken.invitedName } : {}),
+          },
         });
       }
 
@@ -102,6 +109,11 @@ export const acceptParentInvite = async (req: AuthRequest, res: Response) => {
 
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
+
+    void notifyAdminsOfAcceptedParent(
+      inviteToken.schoolId,
+      result.name || inviteToken.invitedName || "Parent",
+    );
 
     await prisma.session.create({
       data: {
@@ -130,5 +142,29 @@ export const acceptParentInvite = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Accept Parent Invite");
     res.status(errorResponse.status).json(errorResponse);
+  }
+};
+
+const notifyAdminsOfAcceptedParent = async (
+  schoolId: string,
+  parentName: string,
+) => {
+  try {
+    const admins = await prisma.user.findMany({
+      where: { schoolId, role: { in: ["PRINCIPAL", "SCHOOL_ADMIN"] }, active: true },
+      select: { id: true },
+    });
+
+    if (admins.length === 0) return;
+
+    await notifyMany(schoolId, admins.map((a) => a.id), {
+      title: "New parent",
+      message: `${parentName} accepted their parent invite.`,
+      type: "INVITE",
+      route: "/admin/parents",
+      data: { parentName },
+    });
+  } catch (error) {
+    console.error("[acceptParentInvite] Notification fan-out failed:", error);
   }
 };
