@@ -3,6 +3,8 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 
+const toDateOnly = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 export const listCelebrations = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user || !req.user.schoolId) {
@@ -16,33 +18,51 @@ export const listCelebrations = async (req: AuthRequest, res: Response) => {
 
     const teachers = await prisma.user.findMany({
       where: { schoolId, role: { in: ["TEACHER", "BURSAR"] }, active: true },
-      select: { id: true, name: true, role: true, image: true, createdAt: true },
+      select: { id: true, name: true, role: true, image: true, dateOfBirth: true, employmentDate: true },
     });
 
     const celebrations: any[] = [];
 
     teachers.forEach((teacher) => {
-      if (teacher.createdAt) {
-        const hireDate = new Date(teacher.createdAt);
-        const thisYearAnniversary = new Date(now.getFullYear(), hireDate.getMonth(), hireDate.getDate());
-        if (thisYearAnniversary < now) {
-          thisYearAnniversary.setFullYear(thisYearAnniversary.getFullYear() + 1);
+      const upcoming: Array<{ date: Date; type: string; extra: Record<string, unknown> }> = [];
+
+      if (teacher.dateOfBirth) {
+        upcoming.push({
+          date: teacher.dateOfBirth,
+          type: "BIRTHDAY",
+          extra: {},
+        });
+      }
+
+      if (teacher.employmentDate) {
+        upcoming.push({
+          date: teacher.employmentDate,
+          type: "WORK_ANNIVERSARY",
+          extra: {},
+        });
+      }
+
+      upcoming.forEach(({ date, type, extra }) => {
+        const thisYear = new Date(now.getFullYear(), date.getMonth(), date.getDate());
+        if (thisYear < now) {
+          thisYear.setFullYear(thisYear.getFullYear() + 1);
         }
-        const daysUntil = Math.ceil((thisYearAnniversary.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const daysUntil = Math.ceil((thisYear.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         if (daysUntil >= 0 && daysUntil <= 30) {
-          const yearsAtSchool = now.getFullYear() - hireDate.getFullYear();
+          const years = now.getFullYear() - date.getFullYear();
           celebrations.push({
-            id: `${teacher.id}-anniversary`,
-            type: "WORK_ANNIVERSARY",
+            id: `${teacher.id}-${type.toLowerCase()}`,
+            type,
             personName: teacher.name,
             personRole: teacher.role,
-            date: thisYearAnniversary.toISOString().split("T")[0],
-            yearsAtSchool,
+            date: toDateOnly(thisYear),
             imageUrl: teacher.image,
             daysUntil,
+            ...(type === "BIRTHDAY" ? { age: years } : { yearsAtSchool: years }),
+            ...extra,
           });
         }
-      }
+      });
     });
 
     celebrations.sort((a, b) => a.daysUntil - b.daysUntil);

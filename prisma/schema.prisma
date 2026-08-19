@@ -55,6 +55,7 @@ model School {
   scoreSchemes       ScoreScheme[]
   gradeScales        GradeScale[]
   notifications      Notification[]
+  examBroadcastRequests ExamBroadcastRequest[]
   principal          User?     @relation("SchoolPrincipal", fields: [principalId], references: [id], onDelete: SetNull)
 
   @@index([principalId])
@@ -70,6 +71,10 @@ model User {
   phone        String?  @unique
   role         String   @default("teacher")
   image          String?
+  dateOfBirth    DateTime?
+  employmentDate DateTime?
+  address        String?
+  gender         String? // M, F
   formClassId    String?
   passwordHash   String?
   emailVerified  Boolean  @default(false)
@@ -87,6 +92,8 @@ model User {
   sessions          Session[]
   timetableEntries  TimetableEntry[]
   notifications     Notification[]
+  examBroadcastRequests ExamBroadcastRequest[]
+  examBroadcastReviews ExamBroadcastRequest[] @relation("ExamBroadcastReviewedBy")
 
   @@index([schoolId])
   @@index([role])
@@ -437,6 +444,7 @@ model ExamSession {
   maxScore    Int      @default(100)
   date        DateTime
   status      String   @default("DRAFT") // DRAFT, PUBLISHED, COMPLETED
+  visibleToParents Boolean @default(false) // teacher broadcast flag (kept editable)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -445,6 +453,7 @@ model ExamSession {
   class     Class?          @relation(fields: [classId], references: [id], onDelete: SetNull)
   component ScoreComponent? @relation(fields: [componentId], references: [id], onDelete: SetNull)
   scores    ExamScore[]
+  broadcastRequest ExamBroadcastRequest?
 
   @@index([schoolId])
   @@index([subjectId])
@@ -452,6 +461,28 @@ model ExamSession {
   @@index([componentId])
   @@index([term, session])
   @@unique([schoolId, subjectId, classId, componentId, term, session])
+}
+
+// Teacher → principal broadcast approval for terminal exams / report cards.
+model ExamBroadcastRequest {
+  id          String   @id @default(cuid())
+  schoolId    String
+  examId      String   @unique
+  teacherId   String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  reviewedAt  DateTime?
+  reviewedById String?
+
+  school      School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  exam        ExamSession @relation(fields: [examId], references: [id], onDelete: Cascade)
+  teacher     User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  reviewedBy  User?  @relation("ExamBroadcastReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, status])
+  @@index([teacherId])
 }
 
 model ScoreComponent {

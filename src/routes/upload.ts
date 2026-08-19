@@ -9,6 +9,6 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-router.post("/upload", upload.single("image"), uploadImage);
+router.post("/", upload.single("image"), uploadImage);
 
 export default router;

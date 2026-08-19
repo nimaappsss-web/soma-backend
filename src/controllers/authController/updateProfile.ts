@@ -9,7 +9,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { name, phone, image } = req.body;
+    const { name, phone, image, dateOfBirth, employmentDate, address, gender } = req.body;
 
     const updated = await prisma.user.update({
       where: { id: req.user.userId },
@@ -17,6 +17,10 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         ...(name !== undefined ? { name } : {}),
         ...(phone !== undefined ? { phone } : {}),
         ...(image !== undefined ? { image } : {}),
+        ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth || null } : {}),
+        ...(employmentDate !== undefined ? { employmentDate: employmentDate || null } : {}),
+        ...(address !== undefined ? { address: address || null } : {}),
+        ...(gender !== undefined ? { gender: gender || null } : {}),
       },
       select: {
         id: true,
@@ -24,6 +28,10 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         email: true,
         phone: true,
         image: true,
+        dateOfBirth: true,
+        employmentDate: true,
+        address: true,
+        gender: true,
         role: true,
         active: true,
       },
@@ -32,6 +40,8 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     res.json({
       user: {
         ...updated,
+        dateOfBirth: updated.dateOfBirth ? updated.dateOfBirth.toISOString().split("T")[0] : null,
+        employmentDate: updated.employmentDate ? updated.employmentDate.toISOString().split("T")[0] : null,
         needsPhoneSetup: !updated.phone,
       },
     });

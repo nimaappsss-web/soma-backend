@@ -4,3 +4,4 @@ export { parentStats } from "./parentStats";
 export { inviteParent } from "./inviteParent";
 export { resendParentInviteController } from "./resendParentInviteController";
 export { parentAttendance } from "./parentAttendance";
+export { parentExamResults } from "./parentExamResults";

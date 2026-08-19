@@ -48,6 +48,7 @@ export const getExamScoresBulk = async (req: AuthRequest, res: Response) => {
 
     const exam = await prisma.examSession.findFirst({
       where: { schoolId, subjectId, classId, componentId, term, session: resolvedSession },
+      include: { broadcastRequest: { select: { status: true } } },
     });
 
     if (!exam) {
@@ -67,6 +68,8 @@ export const getExamScoresBulk = async (req: AuthRequest, res: Response) => {
         remarks: row.remarks,
       })),
       examId: exam.id,
+      visibleToParents: exam.visibleToParents,
+      broadcastStatus: exam.broadcastRequest?.status ?? null,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Get Exam Scores (bulk)");

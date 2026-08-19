@@ -98,7 +98,7 @@ export const bulkAttendance = async (req: AuthRequest, res: Response) => {
 
     notifyParentsOfAttendance(
       req.user.schoolId,
-      classRecord.name,
+      classId,
       attendanceDate,
       results.map((r: any) => r.studentId),
     );
@@ -110,24 +110,47 @@ export const bulkAttendance = async (req: AuthRequest, res: Response) => {
 
 const notifyParentsOfAttendance = async (
   schoolId: string,
-  className: string,
+  classId: string,
   date: Date,
   studentIds: string[],
 ) => {
   try {
     if (studentIds.length === 0) return;
 
-    const parentIds = await parentUserIdsForStudents(schoolId, studentIds);
-    if (parentIds.length === 0) return;
-
-    const dateLabel = date.toISOString().slice(0, 10);
-    await notifyMany(schoolId, parentIds, {
-      title: "Attendance updated",
-      message: `Attendance for ${className} has been updated for ${dateLabel}.`,
-      type: "ATTENDANCE",
-      route: "/parent/children",
-      data: { className, date: dateLabel },
+    const students = await prisma.student.findMany({
+      where: { id: { in: studentIds }, schoolId },
+      select: { id: true, name: true },
     });
+
+    const studentMap = new Map(students.map((s) => [s.id, s.name]));
+
+    const records = await prisma.attendance.findMany({
+      where: {
+        studentId: { in: studentIds },
+        classId,
+        date,
+      },
+      select: { studentId: true, status: true },
+    });
+
+    const statusMap = new Map(records.map((r) => [r.studentId, r.status]));
+
+    for (const studentId of studentIds) {
+      const studentName = studentMap.get(studentId) ?? "Your child";
+      const status = statusMap.get(studentId) ?? "absent";
+      const statusWord = status === "present" ? "was present in school" : "was absent from school";
+
+      const parentIds = await parentUserIdsForStudents(schoolId, [studentId]);
+      if (parentIds.length === 0) continue;
+
+      await notifyMany(schoolId, parentIds, {
+        title: "Attendance update",
+        message: `${studentName} ${statusWord} today.`,
+        type: "ATTENDANCE",
+        route: "/parent/children",
+        data: { classId, date: date.toISOString().slice(0, 10), studentName, status },
+      });
+    }
   } catch (error) {
     console.error("[bulkAttendance] Notification fan-out failed:", error);
   }
