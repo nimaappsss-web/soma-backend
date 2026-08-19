@@ -112,9 +112,12 @@ export const sendPasswordResetEmail = async (
 ) => {
   if (process.env.DISABLE_EMAILS === "true") return;
 
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
   await sendViaSendGrid(
     to,
-    "Reset Your Password — Nima",
-    passwordResetHtml(name, token),
+    "Reset Your Password — Soma",
+    passwordResetHtml(name, resetUrl),
   );
 };
