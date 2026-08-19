@@ -1,8 +1,6 @@
 import { baseLayout } from "./baseTemplate";
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
-
-export const welcomeHtml = (name: string) => baseLayout(`
+export const welcomeHtml = (name: string, frontendUrl?: string) => baseLayout(`
   <tr>
     <td align="center" style="padding: 32px 40px 0;" class="card-inner">
       <h1 style="color: #1a1a1a; font-size: 28px; font-weight: 700; margin: 0; line-height: 1.3; font-family: 'Geist', Arial, Helvetica, sans-serif;" class="card-title">Welcome to Nima!</h1>
@@ -21,13 +19,7 @@ export const welcomeHtml = (name: string) => baseLayout(`
   </tr>
   <tr>
     <td align="center" style="padding: 24px 40px 0;" class="card-inner">
-      <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-        <tr>
-          <td align="center" style="background-color: #1a1a1a; border-radius: 9999px; padding: 14px 36px;" class="cta-btn">
-            <a href="${FRONTEND_URL}/login" style="color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; display: inline-block; font-family: 'Geist', Arial, Helvetica, sans-serif;">Log in to Nima</a>
-          </td>
-        </tr>
-      </table>
+      <a href="${(frontendUrl || process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "")}/login" class="cta-btn" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; padding: 14px 36px; border-radius: 9999px; font-family: 'Geist', Arial, Helvetica, sans-serif;">Log in to Nima</a>
     </td>
   </tr>
-`);
+`, undefined, frontendUrl);

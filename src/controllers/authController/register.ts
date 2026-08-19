@@ -8,6 +8,7 @@ import { createErrorResponse } from "../../utils/errorHandler";
 import { AuthRequest, RegisterSchoolDto } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { sendEmailOtp } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { generateOTP } from "../../utils/tokens";
 
 export const register = async (req: AuthRequest, res: Response) => {
@@ -95,7 +96,7 @@ export const register = async (req: AuthRequest, res: Response) => {
         },
       });
       try {
-        await sendEmailOtp(principal.email, principal.name, otp);
+        await sendEmailOtp(principal.email, principal.name, otp, getFrontendUrl(req));
         emailOtpSent = true;
       } catch (err: any) {
         console.error("Registration send email OTP error:", err?.message || err);

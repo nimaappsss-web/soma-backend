@@ -8,8 +8,9 @@ export const parentInviteHtml = (
   token: string,
   email?: string | null,
   phone?: string | null,
+  frontendUrl?: string,
 ) => {
-  const acceptUrl = buildInviteUrl("/accept-parent-invite", token, { email, phone });
+  const acceptUrl = buildInviteUrl("/accept-parent-invite", token, { email, phone }, frontendUrl);
 
   return baseLayout(`
   <tr>
@@ -26,13 +27,7 @@ export const parentInviteHtml = (
   </tr>
   <tr>
     <td align="center" style="padding: 24px 40px 0;" class="card-inner">
-      <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-        <tr>
-          <td align="center" style="background-color: #1a1a1a; border-radius: 9999px; padding: 14px 36px;" class="cta-btn">
-            <a href="${acceptUrl}" style="color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; display: inline-block; font-family: 'Geist', Arial, Helvetica, sans-serif;">Set Up Parent Account</a>
-          </td>
-        </tr>
-      </table>
+      <a href="${acceptUrl}" class="cta-btn" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; padding: 14px 36px; border-radius: 9999px; font-family: 'Geist', Arial, Helvetica, sans-serif;">Set Up Parent Account</a>
     </td>
   </tr>
   <tr>
@@ -47,5 +42,5 @@ export const parentInviteHtml = (
       <p style="color: #888888; font-size: 14px; line-height: 1.5; margin: 0; text-align: center; font-family: 'Geist', Arial, Helvetica, sans-serif;" class="card-text">Don't want to join <strong style="color: #666666;">${schoolName}</strong>? Simply ignore this email.</p>
     </td>
   </tr>
-  `);
+  `, frontendUrl);
 };

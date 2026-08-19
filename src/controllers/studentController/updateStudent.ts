@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { localPhoneNumber } from "../../utils/whatsapp";
 import { sendParentInviteEmail } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { ensureParentUser } from "../../utils/parentUser";
 import { normalizePersonName } from "../../utils/personName";
 
@@ -125,6 +126,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
                 matching.token,
                 updated.parentEmail,
                 updated.parentPhone || student.parentPhone,
+                getFrontendUrl(req),
               );
             } catch (err: any) {
               console.error("Failed to send parent invite email after edit:", err?.message || err);
@@ -142,6 +144,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
             updated.name,
             updated.parentEmail,
             updated.parentPhone || student.parentPhone,
+            getFrontendUrl(req),
           );
         }
       } catch (err: any) {

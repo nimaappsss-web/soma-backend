@@ -5,6 +5,7 @@ import { hashPassword, validatePassword } from "../../utils/password";
 import { AuthRequest, RegisterPrincipalDto } from "../../types";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendEmailOtp } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { generateOTP } from "../../utils/tokens";
 import { prisma } from "../../utils/prisma";
 
@@ -74,7 +75,7 @@ export const registerPrincipal = async (req: AuthRequest, res: Response) => {
         },
       });
       try {
-        await sendEmailOtp(principal.email, principal.name, otp);
+        await sendEmailOtp(principal.email, principal.name, otp, getFrontendUrl(req));
         emailOtpSent = true;
       } catch (err: any) {
         console.error("Register principal send email OTP error:", err?.message || err);

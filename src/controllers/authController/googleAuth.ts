@@ -5,6 +5,7 @@ import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { OAuth2Client } from "google-auth-library";
 import { sendWelcomeEmail } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import crypto from "crypto";
 import { broadcastToUser } from "../../utils/sse";
 import { markDataChanged } from "../../utils/dataVersion";
@@ -68,7 +69,7 @@ export const googleAuth = async (req: AuthRequest, res: Response) => {
 
       if (process.env.DISABLE_EMAILS !== "true") {
         try {
-          await sendWelcomeEmail(email, name);
+          await sendWelcomeEmail(email, name, getFrontendUrl(req));
         } catch {
           // Silent fail
         }

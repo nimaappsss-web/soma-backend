@@ -6,6 +6,7 @@ import { hashPassword, validatePassword } from "../../utils/password";
 import { generateAccessToken, generateRefreshToken, verifyRegistrationToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendEmailOtp } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { generateOTP } from "../../utils/tokens";
 import { notifyMany } from "../../utils/notifications";
 
@@ -144,7 +145,7 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
         const code = generateOTP();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         await prisma.oTP.create({ data: { email, code, expiresAt } });
-        await sendEmailOtp(email, name, code);
+        await sendEmailOtp(email, name, code, getFrontendUrl(req));
       } catch (err: any) {
         console.error("Failed to send verification email:", err?.message || err);
       }

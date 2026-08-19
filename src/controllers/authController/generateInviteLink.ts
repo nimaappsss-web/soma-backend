@@ -6,6 +6,7 @@ import { createErrorResponse } from "../../utils/errorHandler";
 import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
 import { cleanPhoneNumber } from "../../utils/whatsapp";
 import { teacherInviteWhatsAppMessage, staffInviteWhatsAppMessage, SOMA_WHITE_LOGO } from "../../utils/whatsappTemplates";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 
 export const generateInviteLink = async (req: AuthRequest, res: Response) => {
   try {
@@ -40,14 +41,14 @@ export const generateInviteLink = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    const baseUrl = process.env.FRONTEND_URL || "https://app.nimaschool.com";
+    const baseUrl = getFrontendUrl(req);
     const link = `${baseUrl}/register?token=${token}`;
 
     if (phone) {
       const normalizedRole = (role || "TEACHER").toUpperCase();
       const message = normalizedRole === "STAFF"
-        ? staffInviteWhatsAppMessage(school.name, token, undefined, phone)
-        : teacherInviteWhatsAppMessage(school.name, token, undefined, phone);
+        ? staffInviteWhatsAppMessage(school.name, token, undefined, phone, baseUrl)
+        : teacherInviteWhatsAppMessage(school.name, token, undefined, phone, baseUrl);
       const delivery = await sendBrandedWhatsAppMessage(
         cleanPhoneNumber(phone),
         message,

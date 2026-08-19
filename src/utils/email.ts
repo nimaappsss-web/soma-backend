@@ -30,11 +30,11 @@ const sendViaSendGrid = async (
   }
 };
 
-export const sendWelcomeEmail = async (to: string, name: string) => {
+export const sendWelcomeEmail = async (to: string, name: string, frontendUrl?: string) => {
   await sendViaSendGrid(
     to,
     "Welcome to Nima — Verify Your Account",
-    welcomeHtml(name),
+    welcomeHtml(name, frontendUrl),
   );
 };
 
@@ -44,11 +44,12 @@ export const sendTeacherInviteEmail = async (
   token: string,
   email?: string | null,
   phone?: string | null,
+  frontendUrl?: string,
 ) => {
   await sendViaSendGrid(
     to,
     `You're Invited to Join ${schoolName} on Nima`,
-    teacherInviteHtml(schoolName, token, email, phone),
+    teacherInviteHtml(schoolName, token, email, phone, frontendUrl),
   );
 };
 
@@ -60,13 +61,14 @@ export const sendParentInviteEmail = async (
   token: string,
   email?: string | null,
   phone?: string | null,
+  frontendUrl?: string,
 ) => {
   if (process.env.DISABLE_EMAILS === "true") return;
 
   await sendViaSendGrid(
     to,
     `Your child has been registered at ${schoolName}`,
-    parentInviteHtml(schoolName, parentName, studentName, token, email, phone),
+    parentInviteHtml(schoolName, parentName, studentName, token, email, phone, frontendUrl),
   );
 };
 
@@ -78,6 +80,7 @@ export const trySendParentEmail = async (
   token: string,
   email?: string | null,
   phone?: string | null,
+  frontendUrl?: string,
 ): Promise<{ ok: boolean; error?: string }> => {
   if (process.env.DISABLE_EMAILS === "true") return { ok: true };
 
@@ -85,7 +88,7 @@ export const trySendParentEmail = async (
     await sendViaSendGrid(
       to,
       `Your child has been registered at ${schoolName}`,
-      parentInviteHtml(schoolName, parentName, studentName, token, email, phone),
+      parentInviteHtml(schoolName, parentName, studentName, token, email, phone, frontendUrl),
     );
     return { ok: true };
   } catch (err: any) {
@@ -97,11 +100,12 @@ export const sendEmailOtp = async (
   to: string,
   name: string,
   otp: string,
+  frontendUrl?: string,
 ) => {
   await sendViaSendGrid(
     to,
     "Verify Your Email — Nima",
-    emailOtpHtml(name, otp),
+    emailOtpHtml(name, otp, frontendUrl),
   );
 };
 
@@ -109,15 +113,16 @@ export const sendPasswordResetEmail = async (
   to: string,
   name: string,
   token: string,
+  frontendUrl?: string,
 ) => {
   if (process.env.DISABLE_EMAILS === "true") return;
 
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-  const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+  const frontend = (frontendUrl || process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+  const resetUrl = `${frontend}/reset-password?token=${encodeURIComponent(token)}`;
 
   await sendViaSendGrid(
     to,
     "Reset Your Password — Soma",
-    passwordResetHtml(name, resetUrl),
+    passwordResetHtml(name, resetUrl, frontend),
   );
 };

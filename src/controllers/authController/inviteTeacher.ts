@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { validateEmail } from "../../utils/validation";
 import { generateSecureToken } from "../../utils/tokens";
 import { sendTeacherInviteEmail } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
 import { cleanPhoneNumber } from "../../utils/whatsapp";
@@ -84,8 +85,9 @@ export const inviteTeacher = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    const frontendUrl = getFrontendUrl(req);
     try {
-      await sendTeacherInviteEmail(teacherEmail, school.name, token, teacherEmail, teacherPhone);
+      await sendTeacherInviteEmail(teacherEmail, school.name, token, teacherEmail, teacherPhone, frontendUrl);
     } catch (err: any) {
       console.error("Failed to send invite email:", err?.message || err);
     }
@@ -93,7 +95,7 @@ export const inviteTeacher = async (req: AuthRequest, res: Response) => {
     if (teacherPhone) {
       const delivery = await sendBrandedWhatsAppMessage(
         cleanPhoneNumber(teacherPhone),
-        teacherInviteWhatsAppMessage(school.name, token, teacherEmail, teacherPhone),
+        teacherInviteWhatsAppMessage(school.name, token, teacherEmail, teacherPhone, frontendUrl),
         { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
       );
       if (!delivery.ok) {

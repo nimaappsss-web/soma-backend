@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { validateEmail } from "../../utils/validation";
 import { generateSecureToken } from "../../utils/tokens";
 import { sendTeacherInviteEmail } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
 import { cleanPhoneNumber } from "../../utils/whatsapp";
@@ -129,18 +130,19 @@ export const bulkInviteTeachers = async (req: AuthRequest, res: Response) => {
     });
 
     const inviteByToken = new Map(inviteData.map((i) => [i.token, i]));
+    const frontendUrl = getFrontendUrl(req);
 
     // --- Fire all emails + WhatsApp concurrently (fire-and-forget errors) ---
     Promise.allSettled(
       createdInvites.map((inv) => {
         const row = inviteByToken.get(inv.token);
-        return sendTeacherInviteEmail(inv.invitedEmail!, school.name, inv.token, inv.invitedEmail!, row?.phone).catch((err) => {
+        return sendTeacherInviteEmail(inv.invitedEmail!, school.name, inv.token, inv.invitedEmail!, row?.phone, frontendUrl).catch((err) => {
           console.error("Failed to send invite email:", err?.message || err);
         }).then(async () => {
           if (row?.phone) {
             const delivery = await sendBrandedWhatsAppMessage(
               cleanPhoneNumber(row.phone),
-              teacherInviteWhatsAppMessage(school.name, inv.token, inv.invitedEmail!, row.phone),
+              teacherInviteWhatsAppMessage(school.name, inv.token, inv.invitedEmail!, row.phone, frontendUrl),
               { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
             );
             if (!delivery.ok) {

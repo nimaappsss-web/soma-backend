@@ -1,6 +1,6 @@
 import { baseLayout } from "./baseTemplate";
 
-export const passwordResetHtml = (name: string, resetUrl: string) => baseLayout(`
+export const passwordResetHtml = (name: string, resetUrl: string, frontendUrl?: string) => baseLayout(`
   <tr>
     <td align="center" style="padding: 32px 40px 0;" class="card-inner">
       <h1 style="color: #1a1a1a; font-size: 28px; font-weight: 700; margin: 0; line-height: 1.3; font-family: 'Geist', Arial, Helvetica, sans-serif;" class="card-title">Reset Your Password</h1>
@@ -35,4 +35,4 @@ export const passwordResetHtml = (name: string, resetUrl: string) => baseLayout(
       <p style="color: #888888; font-size: 14px; line-height: 1.5; margin: 0; text-align: center; font-family: 'Geist', Arial, Helvetica, sans-serif;" class="card-text">Don't want to reset your password? Simply ignore this email.</p>
     </td>
   </tr>
-  `);
+  `, frontendUrl);

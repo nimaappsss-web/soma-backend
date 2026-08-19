@@ -3,6 +3,7 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { generateSecureToken } from "../../utils/tokens";
 import { trySendParentEmail } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
 import { cleanPhoneNumber } from "../../utils/whatsapp";
@@ -52,7 +53,7 @@ export const resendParentInvite = async (req: AuthRequest, res: Response) => {
 
     // Email is the priority; WhatsApp is the fallback when no email exists
     if (invite.invitedEmail) {
-      trySendParentEmail(invite.invitedEmail, school.name, invite.invitedName || "Parent", "your child", newToken, invite.invitedEmail, invite.invitedPhone).then(
+      trySendParentEmail(invite.invitedEmail, school.name, invite.invitedName || "Parent", "your child", newToken, invite.invitedEmail, invite.invitedPhone, getFrontendUrl(req)).then(
         (result) => {
           if (!result.ok) {
             prisma.inviteToken.update({
@@ -68,7 +69,7 @@ export const resendParentInvite = async (req: AuthRequest, res: Response) => {
 
     const delivery = await sendBrandedWhatsAppMessage(
       cleanPhoneNumber(invite.invitedPhone!),
-      parentInviteWhatsAppMessage(school.name, invite.invitedName || "Parent", "your child", newToken, undefined, invite.invitedPhone),
+      parentInviteWhatsAppMessage(school.name, invite.invitedName || "Parent", "your child", newToken, undefined, invite.invitedPhone, getFrontendUrl(req)),
       { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
     );
     if (!delivery.ok) {

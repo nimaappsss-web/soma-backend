@@ -3,6 +3,7 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { generateSecureToken } from "../../utils/tokens";
 import { sendTeacherInviteEmail } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
 import { cleanPhoneNumber } from "../../utils/whatsapp";
@@ -56,7 +57,7 @@ export const resendInvite = async (req: AuthRequest, res: Response) => {
 
     if (invite.invitedEmail) {
       try {
-        await sendTeacherInviteEmail(invite.invitedEmail, school.name, newToken, invite.invitedEmail, staff.phone);
+        await sendTeacherInviteEmail(invite.invitedEmail, school.name, newToken, invite.invitedEmail, staff.phone, getFrontendUrl(req));
       } catch (err: any) {
         console.error("Failed to resend invite email:", err?.message || err);
       }
@@ -65,7 +66,7 @@ export const resendInvite = async (req: AuthRequest, res: Response) => {
     if (staff.phone) {
       const delivery = await sendBrandedWhatsAppMessage(
         cleanPhoneNumber(staff.phone),
-        staffInviteWhatsAppMessage(school.name, newToken, invite.invitedEmail, staff.phone),
+        staffInviteWhatsAppMessage(school.name, newToken, invite.invitedEmail, staff.phone, getFrontendUrl(req)),
         { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
       );
       if (!delivery.ok) {

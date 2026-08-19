@@ -5,6 +5,7 @@ import { createErrorResponse } from "../../utils/errorHandler";
 import { generateAdmissionNo } from "../../utils/admission";
 import { generateSecureToken } from "../../utils/tokens";
 import { trySendParentEmail } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { localPhoneNumber } from "../../utils/whatsapp";
 import { normalizePersonName } from "../../utils/personName";
 import { generateInvoicesForStudents } from "../../utils/generateStudentInvoices";
@@ -256,6 +257,7 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
         if (process.env.DISABLE_EMAILS !== "true") {
           const emailInvites = inviteData.filter((i) => i.invitedEmail);
           if (emailInvites.length > 0) {
+            const frontendUrl = getFrontendUrl(req);
             Promise.allSettled(
               emailInvites.map((inv) => {
                 const parent = toCreateUsers.find((p) => p.parentEmail === inv.invitedEmail);
@@ -267,6 +269,7 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
                   inv.token,
                   inv.invitedEmail,
                   inv.invitedPhone,
+                  frontendUrl,
                 ).then((result) => {
                   if (!result.ok) {
                     prisma.inviteToken

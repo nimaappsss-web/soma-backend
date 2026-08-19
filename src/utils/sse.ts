@@ -3,7 +3,13 @@ import { Response } from "express";
 // In-memory registry of active SSE connections, keyed by userId.
 // Single-instance assumption: fan-out is direct. If the API is scaled to
 // multiple instances, replace this with Redis pub/sub.
-const clients = new Map<string, Set<Response>>();
+
+interface SseClient {
+  res: Response;
+  deviceId: string | null;
+}
+
+const clients = new Map<string, Set<SseClient>>();
 
 const sseHeaders = (res: Response) => {
   res.writeHead(200, {
@@ -15,41 +21,52 @@ const sseHeaders = (res: Response) => {
   res.flushHeaders?.();
 };
 
-export const addSseClient = (userId: string, res: Response) => {
+export const addSseClient = (
+  userId: string,
+  res: Response,
+  deviceId: string | null = null,
+) => {
   sseHeaders(res);
   res.write(": connected\n\n");
 
   let set = clients.get(userId);
   if (!set) {
-    set = new Set<Response>();
+    set = new Set<SseClient>();
     clients.set(userId, set);
   }
-  set.add(res);
+  const client = { res, deviceId };
+  set.add(client);
 
   res.on("close", () => {
-    set!.delete(res);
+    set!.delete(client);
     if (set!.size === 0) clients.delete(userId);
   });
   res.on("error", () => {
-    set!.delete(res);
+    set!.delete(client);
     if (set!.size === 0) clients.delete(userId);
   });
 };
 
-export const broadcastToUser = (userId: string, event: string, data: unknown) => {
+export const broadcastToUser = (
+  userId: string,
+  event: string,
+  data: unknown,
+  excludeDeviceId?: string | null,
+) => {
   const set = clients.get(userId);
   if (!set || set.size === 0) return;
 
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const res of set) {
-    res.write(payload);
+  for (const client of set) {
+    if (excludeDeviceId && client.deviceId === excludeDeviceId) continue;
+    client.res.write(payload);
   }
 };
 
 const sendHeartbeat = () => {
   for (const [, set] of clients) {
-    for (const res of set) {
-      res.write(": ping\n\n");
+    for (const client of set) {
+      client.res.write(": ping\n\n");
     }
   }
 };

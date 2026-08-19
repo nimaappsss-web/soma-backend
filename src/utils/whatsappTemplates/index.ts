@@ -13,8 +13,9 @@ export const teacherInviteWhatsAppMessage = (
   token: string,
   email?: string | null,
   phone?: string | null,
+  frontendUrl?: string,
 ): string => {
-  const acceptUrl = buildInviteUrl("/accept-invite", token, { email, phone });
+  const acceptUrl = buildInviteUrl("/accept-invite", token, { email, phone }, frontendUrl);
 
   return `*${BRAND_NAME}* — You're Invited!
 
@@ -36,8 +37,9 @@ export const parentInviteWhatsAppMessage = (
   token: string,
   email?: string | null,
   phone?: string | null,
+  frontendUrl?: string,
 ): string => {
-  const acceptUrl = buildInviteUrl("/accept-parent-invite", token, { email, phone });
+  const acceptUrl = buildInviteUrl("/accept-parent-invite", token, { email, phone }, frontendUrl);
 
   return `*${BRAND_NAME}* — Welcome to ${schoolName}
 
@@ -77,8 +79,9 @@ export const staffInviteWhatsAppMessage = (
   token: string,
   email?: string | null,
   phone?: string | null,
+  frontendUrl?: string,
 ): string => {
-  const acceptUrl = buildInviteUrl("/accept-invite", token, { email, phone });
+  const acceptUrl = buildInviteUrl("/accept-invite", token, { email, phone }, frontendUrl);
 
   return `*${BRAND_NAME}* — You're Invited!
 

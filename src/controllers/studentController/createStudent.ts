@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { generateAdmissionNo } from "../../utils/admission";
 import { ensureParentUser } from "../../utils/parentUser";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { localPhoneNumber } from "../../utils/whatsapp";
 import { normalizePersonName } from "../../utils/personName";
 import { generateInvoicesForStudents } from "../../utils/generateStudentInvoices";
@@ -88,7 +89,7 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    await ensureParentUser(schoolId, req.user!.userId, normalizePersonName(parentName) || name, name, parentEmail, parentPhone);
+    await ensureParentUser(schoolId, req.user!.userId, normalizePersonName(parentName) || name, name, parentEmail, parentPhone, getFrontendUrl(req));
 
     await generateInvoicesForStudents(schoolId, [{ id: student.id, classId }]);
 

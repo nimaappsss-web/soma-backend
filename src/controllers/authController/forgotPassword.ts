@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { validateEmail } from "../../utils/validation";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendPasswordResetEmail } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import crypto from "crypto";
 
 export const forgotPassword = async (req: AuthRequest, res: Response) => {
@@ -35,7 +36,7 @@ export const forgotPassword = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    await sendPasswordResetEmail(user.email!, user.name || "User", token);
+    await sendPasswordResetEmail(user.email!, user.name || "User", token, getFrontendUrl(req));
 
     res.json({
       message: "If email exists, password reset link has been sent",

@@ -3,6 +3,7 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { generateSecureToken } from "../../utils/tokens";
 import { sendTeacherInviteEmail } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { createErrorResponse } from "../../utils/errorHandler";
 
 export const resendInvite = async (req: AuthRequest, res: Response) => {
@@ -43,7 +44,7 @@ export const resendInvite = async (req: AuthRequest, res: Response) => {
 
     if (invite.invitedEmail) {
       try {
-        await sendTeacherInviteEmail(invite.invitedEmail, school.name, newToken, invite.invitedEmail, invite.invitedPhone);
+        await sendTeacherInviteEmail(invite.invitedEmail, school.name, newToken, invite.invitedEmail, invite.invitedPhone, getFrontendUrl(req));
       } catch (err: any) {
         console.error("Failed to resend invite email:", err?.message || err);
       }

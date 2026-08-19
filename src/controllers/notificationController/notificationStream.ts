@@ -41,9 +41,15 @@ export const notificationStream = (req: AuthRequest, res: Response) => {
 
   req.user = payload;
 
+  const deviceId =
+    (typeof req.query.deviceId === "string" ? req.query.deviceId : null) ??
+    (typeof req.headers["x-device-id"] === "string"
+      ? req.headers["x-device-id"]
+      : null);
+
   // Keep the TCP socket open indefinitely (Express defaults to a 2min idle timeout).
   req.socket.setTimeout(0);
   res.setTimeout(0);
 
-  addSseClient(payload.userId, res);
+  addSseClient(payload.userId, res, deviceId);
 };

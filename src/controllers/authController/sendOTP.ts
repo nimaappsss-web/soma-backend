@@ -3,6 +3,7 @@ import { Response } from "express";
 import { validatePhoneNumber, validateEmail } from "../../utils/validation";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendEmailOtp } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { generateOTP } from "../../utils/tokens";
 import { prisma } from "../../utils/prisma";
 import { AuthRequest } from "../../types";
@@ -58,7 +59,7 @@ export const sendOTP = async (req: AuthRequest, res: Response) => {
 
       const user = await prisma.user.findFirst({ where: { email } });
       try {
-        await sendEmailOtp(email, user?.name || "User", code);
+        await sendEmailOtp(email, user?.name || "User", code, getFrontendUrl(req));
         console.log(`OTP email sent successfully to ${email}`);
       } catch (err: any) {
         console.error("Send email OTP error:", err?.message || err);

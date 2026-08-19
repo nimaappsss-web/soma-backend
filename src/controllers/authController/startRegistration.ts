@@ -3,6 +3,7 @@ import { AuthRequest } from "../../types";
 import { validateEmail } from "../../utils/validation";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendEmailOtp } from "../../utils/email";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { generateOTP } from "../../utils/tokens";
 import { prisma } from "../../utils/prisma";
 
@@ -36,7 +37,7 @@ export const startRegistration = async (req: AuthRequest, res: Response) => {
     });
 
     try {
-      await sendEmailOtp(email, "User", otp);
+      await sendEmailOtp(email, "User", otp, getFrontendUrl(req));
     } catch (err: any) {
       return res.status(500).json({
         error: "Failed to send verification email. Please try again.",
