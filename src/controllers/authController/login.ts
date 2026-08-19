@@ -5,6 +5,8 @@ import { comparePassword } from "../../utils/password";
 import { validateEmail, validatePhoneNumber } from "../../utils/validation";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { broadcastToUser } from "../../utils/sse";
+import { markDataChanged } from "../../utils/dataVersion";
 
 export const login = async (req: AuthRequest, res: Response) => {
   try {
@@ -104,6 +106,14 @@ export const login = async (req: AuthRequest, res: Response) => {
         },
       });
     }
+
+    // Notify the user's other connected devices that a new session started.
+    markDataChanged(user.id);
+    broadcastToUser(user.id, "data-changed", {
+      method: "POST",
+      path: "/auth/login",
+      changedAt: new Date().toISOString(),
+    });
 
     res.json({
       message: "Login successful",

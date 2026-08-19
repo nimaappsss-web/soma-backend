@@ -30,6 +30,7 @@ import subjectAssignmentsRoutes from "./routes/subject-assignments";
 import notificationRoutes from "./routes/notifications";
 import whatsappRoutes from "./routes/whatsapp";
 import { startSseHeartbeat } from "./utils/sse";
+import { broadcastDataChanged } from "./middleware/broadcastDataChanged";
 
 import express, { Express, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -40,6 +41,11 @@ const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// Broadcast data-changed events to the user's other connected devices after
+// successful writes. Mounted before routes so it wraps every API request; the
+// user is read in the "finish" callback (after auth middleware runs).
+app.use(broadcastDataChanged);
 
 app.get("/", (req: Request, res: Response) => {
   res.json({ message: "Welcome to nima-backend" });

@@ -6,6 +6,8 @@ import { createErrorResponse } from "../../utils/errorHandler";
 import { OAuth2Client } from "google-auth-library";
 import { sendWelcomeEmail } from "../../utils/email";
 import crypto from "crypto";
+import { broadcastToUser } from "../../utils/sse";
+import { markDataChanged } from "../../utils/dataVersion";
 
 const googleClient = new OAuth2Client();
 
@@ -122,6 +124,14 @@ export const googleAuth = async (req: AuthRequest, res: Response) => {
         },
       });
     }
+
+    // Notify the user's other connected devices that a new session started.
+    markDataChanged(user.id);
+    broadcastToUser(user.id, "data-changed", {
+      method: "POST",
+      path: "/auth/google",
+      changedAt: new Date().toISOString(),
+    });
 
     res.json({
       message: isNewUser ? "Account created successfully" : "Login successful",

@@ -35,6 +35,21 @@ export const me = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    const sessions = await prisma.session.findMany({
+      where: {
+        userId: req.user.userId,
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        deviceId: true,
+        deviceType: true,
+        deviceName: true,
+        lastActivityAt: true,
+        createdAt: true,
+      },
+      orderBy: { lastActivityAt: "desc" },
+    });
+
     res.json({
       id: user.id,
       name: user.name,
@@ -54,6 +69,7 @@ export const me = async (req: AuthRequest, res: Response) => {
       emailVerified: user.emailVerified,
       schoolId: user.schoolId,
       school: user.school ? { ...user.school, schoolType: JSON.parse(user.school.schoolType), arms: JSON.parse(user.school.arms) } : null,
+      sessions,
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Get User Profile");

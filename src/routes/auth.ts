@@ -29,6 +29,7 @@ import {
   generateInviteLink,
 } from "../controllers/authController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
+import { getDataVersion } from "../utils/dataVersion";
 import {
   loginLimiter,
   sendOtpLimiter,
@@ -312,6 +313,13 @@ router.post("/logout", logout);
  */
 router.get("/me", authenticateToken, me);
 router.patch("/me", authenticateToken, updateProfile);
+
+router.get("/data-version", authenticateToken, (req, res) => {
+  const userId = (req as { user?: { userId?: string } }).user?.userId;
+  if (!userId) return res.status(401).json({ error: "Not authenticated" });
+  const changedAt = getDataVersion(userId);
+  res.json({ changedAt });
+});
 
 /**
  * @swagger
