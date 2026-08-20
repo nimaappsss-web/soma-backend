@@ -13,3 +13,4 @@ dist/
 /src/generated/prisma
 
 .wa-session/
+.opencode/tmp*
