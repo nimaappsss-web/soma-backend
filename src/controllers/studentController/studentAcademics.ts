@@ -3,6 +3,7 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { resolveSession, normalizeTerm } from "../../utils/academicTerm";
+import { getSchemeInfo } from "../../utils/scoreScheme";
 
 export const studentAcademics = async (req: AuthRequest, res: Response) => {
   try {
@@ -20,12 +21,18 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
 
     const student = await prisma.student.findFirst({
       where: { id: req.params.id, schoolId: req.user.schoolId },
-      select: { id: true, classId: true },
+      select: { id: true, classId: true, class: { select: { schoolType: true } } },
     });
 
     if (!student) {
       return res.status(404).json({ error: "Student not found" });
     }
+
+    const schoolType = student.class?.schoolType ?? "";
+    const scheme = schoolType
+      ? await getSchemeInfo(req.user.schoolId, term as string, session as string | undefined, schoolType)
+      : null;
+    const expectedComponentIds = new Set(scheme?.components.map((c) => c.id) ?? []);
 
     const [examScores, totalStudents, attendanceRecords, academicTerm] = await Promise.all([
       prisma.examScore.findMany({
@@ -54,6 +61,18 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
 
     const subjectsMap = new Map<string, { subjectId: string; subjectName: string; scores: { type: string; score: number; maxScore: number }[]; caTotal: number; examScore: number; total: number; grade: string; teacherName: string }>();
 
+    const scoredBySubject = new Map<string, Set<string>>();
+    for (const es of examScores) {
+      const componentId = es.exam.componentId;
+      if (!componentId) continue;
+      let set = scoredBySubject.get(es.exam.subject.id);
+      if (!set) {
+        set = new Set();
+        scoredBySubject.set(es.exam.subject.id, set);
+      }
+      set.add(componentId);
+    }
+
     for (const es of examScores) {
       const subjectId = es.exam.subject.id;
       const subjectName = es.exam.subject.name;
@@ -77,7 +96,12 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
         entry.caTotal += es.score;
       }
       entry.total = entry.caTotal + entry.examScore;
-      entry.grade = getGrade(entry.total);
+
+      const scored = scoredBySubject.get(subjectId);
+      const complete =
+        expectedComponentIds.size === 0 ||
+        (scored !== undefined && [...expectedComponentIds].every((id) => scored.has(id)));
+      entry.grade = complete ? getGrade(entry.total) : "";
       subjectsMap.set(subjectId, entry);
     }
 
