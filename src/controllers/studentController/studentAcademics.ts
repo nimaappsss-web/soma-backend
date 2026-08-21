@@ -59,7 +59,7 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
       }),
     ]);
 
-    const subjectsMap = new Map<string, { subjectId: string; subjectName: string; scores: { type: string; score: number; maxScore: number }[]; caTotal: number; examScore: number; total: number; grade: string; teacherName: string }>();
+    const subjectsMap = new Map<string, { subjectId: string; subjectName: string; scores: { type: string; score: number; maxScore: number; componentId?: string }[]; caTotal: number; examScore: number; total: number; grade: string; teacherName: string }>();
 
     const scoredBySubject = new Map<string, Set<string>>();
     for (const es of examScores) {
@@ -79,7 +79,7 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
       const entry = subjectsMap.get(subjectId) || {
         subjectId,
         subjectName,
-        scores: [] as { type: string; score: number; maxScore: number }[],
+        scores: [] as { type: string; score: number; maxScore: number; componentId?: string }[],
         caTotal: 0,
         examScore: 0,
         total: 0,
@@ -89,10 +89,15 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
 
       const maxScore = es.exam.maxScore;
       const isExam = es.exam.type === "EXAM";
+      entry.scores.push({
+        type: es.exam.type,
+        score: es.score,
+        maxScore,
+        componentId: es.exam.componentId ?? undefined,
+      });
       if (isExam) {
         entry.examScore = es.score;
       } else {
-        entry.scores.push({ type: es.exam.type, score: es.score, maxScore });
         entry.caTotal += es.score;
       }
       entry.total = entry.caTotal + entry.examScore;
@@ -106,6 +111,22 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
     }
 
     const subjects = Array.from(subjectsMap.values());
+
+    const configComponents = (scheme?.components ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      maxScore: c.maxScore,
+      sortOrder: c.sortOrder,
+    }));
+    const componentOrder = new Map(configComponents.map((c) => [c.id, c.sortOrder]));
+    for (const subject of subjects) {
+      subject.scores.sort(
+        (a, b) =>
+          (a.componentId !== undefined ? componentOrder.get(a.componentId) ?? 999 : 999) -
+          (b.componentId !== undefined ? componentOrder.get(b.componentId) ?? 999 : 999),
+      );
+    }
 
     const totalScores = subjects.reduce((sum, s) => sum + s.total, 0);
     const average = subjects.length > 0 ? Math.round((totalScores / subjects.length) * 10) / 10 : 0;
@@ -132,6 +153,11 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
       cursor.setHours(0, 0, 0, 0);
       const end = new Date(termEnd);
       end.setHours(23, 59, 59, 999);
+      // Only count school days up to today — future days of an ongoing term
+      // must not deflate the attendance percentage.
+      const now = new Date();
+      now.setHours(23, 59, 59, 999);
+      if (end > now) end.setTime(now.getTime());
       while (cursor <= end) {
         const isWeekend = cursor.getDay() === 0 || cursor.getDay() === 6;
         if (!isWeekend && !termHolidayDates.has(cursor.toISOString().split("T")[0])) {
@@ -141,10 +167,15 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const termAttendance =
+      termStart && termEnd
+        ? attendanceRecords.filter((a) => a.date >= termStart && a.date <= termEnd)
+        : attendanceRecords;
+
     let attendancePercentage = 0;
-    if (attendanceRecords.length > 0) {
-      const present = attendanceRecords.filter((a) => a.status === "present").length;
-      const denominator = expectedSchoolDays > 0 ? expectedSchoolDays : attendanceRecords.length;
+    if (termAttendance.length > 0) {
+      const present = termAttendance.filter((a) => a.status === "present").length;
+      const denominator = expectedSchoolDays > 0 ? expectedSchoolDays : termAttendance.length;
       attendancePercentage = Math.round((present / denominator) * 1000) / 10;
     }
 
@@ -173,6 +204,7 @@ export const studentAcademics = async (req: AuthRequest, res: Response) => {
       worstSubject,
       attendancePercentage,
       subjects,
+      components: configComponents,
       position,
       classSize: totalStudents,
     });
