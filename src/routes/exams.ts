@@ -27,6 +27,9 @@ import {
   updateScoreScheme,
   copyScoreComponents,
   createScoreScheme,
+  listExamSheetBroadcasts,
+  approveExamSheetBroadcast,
+  rejectExamSheetBroadcast,
 } from "../controllers/examController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
 
@@ -55,6 +58,9 @@ router.delete("/scores", authenticateToken, deleteExamScoresBulk);
 router.get("/broadcasts", authenticateToken, listExamBroadcasts);
 router.post("/broadcasts/:id/approve", authenticateToken, approveExamBroadcast);
 router.post("/broadcasts/:id/reject", authenticateToken, rejectExamBroadcast);
+router.get("/sheet-broadcasts", authenticateToken, listExamSheetBroadcasts);
+router.post("/sheet-broadcasts/:id/approve", authenticateToken, approveExamSheetBroadcast);
+router.post("/sheet-broadcasts/:id/reject", authenticateToken, rejectExamSheetBroadcast);
 router.get("/:id", authenticateToken, examDetails);
 router.patch("/:id", authenticateToken, requireAdmin(), updateExam);
 router.delete("/:id", authenticateToken, requireAdmin(), deleteExam);

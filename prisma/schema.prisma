@@ -56,6 +56,9 @@ model School {
   gradeScales        GradeScale[]
   notifications      Notification[]
   examBroadcastRequests ExamBroadcastRequest[]
+  caBroadcasts          CaBroadcast[]
+  examSheetBroadcasts   ExamSheetBroadcast[]
+  examResultDeliveries  ExamResultDelivery[]
   principal          User?     @relation("SchoolPrincipal", fields: [principalId], references: [id], onDelete: SetNull)
 
   @@index([principalId])
@@ -94,6 +97,8 @@ model User {
   notifications     Notification[]
   examBroadcastRequests ExamBroadcastRequest[]
   examBroadcastReviews ExamBroadcastRequest[] @relation("ExamBroadcastReviewedBy")
+  examSheetBroadcasts ExamSheetBroadcast[] @relation("ExamSheetBroadcastTeacher")
+  examSheetReviews ExamSheetBroadcast[] @relation("ExamSheetBroadcastReviewedBy")
 
   @@index([schoolId])
   @@index([role])
@@ -243,6 +248,9 @@ model Class {
   timetables       Timetable[]
   examSessions     ExamSession[]
   classSubjects    ClassSubject[]
+  caBroadcasts     CaBroadcast[]
+  examSheetBroadcasts ExamSheetBroadcast[]
+  examResultDeliveries ExamResultDelivery[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -326,6 +334,7 @@ model Student {
   examScores        ExamScore[]
   invoices          Invoice[]
   payments          Payment[]
+  examResultDeliveries ExamResultDelivery[]
 
   @@unique([schoolId, admissionNo])
   @@index([schoolId])
@@ -483,6 +492,75 @@ model ExamBroadcastRequest {
 
   @@index([schoolId, status])
   @@index([teacherId])
+}
+
+// Class-teacher broadcast center: a whole-class CA broadcast (Test 1, Test 2,
+// Practical, ...). No principal approval — CA goes straight to parents. The
+// record tracks which components were included and when it last happened.
+model CaBroadcast {
+  id           String   @id @default(cuid())
+  schoolId     String
+  classId      String
+  term         String
+  session      String
+  componentIds Json     // string[] of ScoreComponent ids included in the broadcast
+  broadcastAt  DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class  Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, classId, term, session])
+  @@index([schoolId, term, session])
+}
+
+// Class-wide terminal-exam sheet approval. The form teacher submits the whole
+// class's exam sheet; the principal reviews it as an "Exam sheet approval".
+// On approval every EXAM-type session for the class+term becomes visible and
+// only the students not already delivered get notified.
+model ExamSheetBroadcast {
+  id           String    @id @default(cuid())
+  schoolId     String
+  classId      String
+  term         String
+  session      String
+  status       String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  note         String?
+  teacherId    String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  school     School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class      Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher    User?  @relation("ExamSheetBroadcastTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
+  reviewedBy User?  @relation("ExamSheetBroadcastReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([schoolId, classId, term, session])
+  @@index([schoolId, status])
+  @@index([classId, term, session])
+}
+
+// Which students' terminal-exam results have already been sent to their parents
+// for a class + term. Lets the form teacher re-broadcast only the newly
+// completed students, or individually resend one child — without needing a new
+// principal approval once the sheet is approved.
+model ExamResultDelivery {
+  id          String   @id @default(cuid())
+  schoolId    String
+  classId     String
+  term        String
+  session     String
+  studentId   String
+  deliveredAt DateTime @default(now())
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, classId, term, session, studentId])
+  @@index([schoolId])
+  @@index([studentId])
 }
 
 model ScoreComponent {

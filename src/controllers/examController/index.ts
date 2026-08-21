@@ -25,3 +25,8 @@ export { deleteScoreScheme } from "./deleteScoreScheme";
 export { createScoreScheme } from "./createScoreScheme";
 export { updateScoreScheme } from "./updateScoreScheme";
 export { copyScoreComponents } from "./copyScoreComponents";
+export { broadcastStatus } from "./broadcastStatus";
+export { broadcastCa } from "./broadcastCa";
+export { submitExamSheet } from "./submitExamSheet";
+export { listExamSheetBroadcasts, approveExamSheetBroadcast, rejectExamSheetBroadcast } from "./examSheetReview";
+export { resendExamResults } from "./resendExamResults";

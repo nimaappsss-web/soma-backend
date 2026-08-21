@@ -3,7 +3,19 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { studentIdsForParent } from "../../utils/parentScoping";
-import { normalizeTerm, sessionFromStartDate } from "../../utils/academicTerm";
+import { normalizeTerm, resolveSession, sessionFromStartDate } from "../../utils/academicTerm";
+
+const TERM_SPELLINGS: Record<string, string[]> = {
+  "1": ["1", "1st", "first"],
+  "2": ["2", "2nd", "second"],
+  "3": ["3", "3rd", "third"],
+};
+
+const termVariants = (term: string): string[] => {
+  const normalized = normalizeTerm(term);
+  const key = normalized ?? term;
+  return TERM_SPELLINGS[key] ?? [term, normalized].filter(Boolean) as string[];
+};
 
 /**
  * Parent-facing exam/test results. Returns, for each of the parent's linked
@@ -34,6 +46,10 @@ export const parentExamResults = async (req: AuthRequest, res: Response) => {
       if (current) resolvedSession = sessionFromStartDate(current.startDate);
     }
 
+    if (resolvedTerm && !resolvedSession) {
+      resolvedSession = await resolveSession(schoolId, resolvedTerm);
+    }
+
     if (!resolvedTerm) {
       return res.json({ term: "", session: "", children: [] });
     }
@@ -62,7 +78,7 @@ export const parentExamResults = async (req: AuthRequest, res: Response) => {
           where: {
             schoolId,
             classId: { in: classIds },
-            term: resolvedTerm,
+            term: { in: termVariants(resolvedTerm) },
             ...(resolvedSession ? { session: resolvedSession } : {}),
             visibleToParents: true,
           },

@@ -13,10 +13,23 @@ export const deleteClass = async (req: AuthRequest, res: Response) => {
 
     const classRecord = await prisma.class.findFirst({
       where: { id, schoolId: req.user.schoolId },
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { students: true } },
+      },
     });
 
     if (!classRecord) {
       return res.status(404).json({ error: "Class not found" });
+    }
+
+    if (classRecord._count.students > 0) {
+      return res.status(400).json({
+        error: `Cannot delete ${classRecord.name} — it still has ${classRecord._count.students} student${
+          classRecord._count.students === 1 ? "" : "s"
+        }. Move the students to another class first.`,
+      });
     }
 
     await prisma.class.delete({ where: { id } });
