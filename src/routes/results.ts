@@ -7,13 +7,14 @@ import {
   resendExamResults,
 } from "../controllers/examController";
 import { authenticateToken } from "../middleware/auth";
+import { normalizeTermParam } from "../middleware/normalizeTermParam";
 
 const router = Router();
 
-router.get("/term", authenticateToken, termResults);
-router.get("/broadcast/status", authenticateToken, broadcastStatus);
-router.post("/broadcast/ca", authenticateToken, broadcastCa);
-router.post("/broadcast/exam", authenticateToken, submitExamSheet);
-router.post("/broadcast/exam/resend", authenticateToken, resendExamResults);
+router.get("/term", authenticateToken, normalizeTermParam, termResults);
+router.get("/broadcast/status", authenticateToken, normalizeTermParam, broadcastStatus);
+router.post("/broadcast/ca", authenticateToken, normalizeTermParam, broadcastCa);
+router.post("/broadcast/exam", authenticateToken, normalizeTermParam, submitExamSheet);
+router.post("/broadcast/exam/resend", authenticateToken, normalizeTermParam, resendExamResults);
 
 export default router;

@@ -32,11 +32,12 @@ import {
   rejectExamSheetBroadcast,
 } from "../controllers/examController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
+import { normalizeTermParam } from "../middleware/normalizeTermParam";
 
 const router = Router();
 
 // Score scheme components (admin writes; teachers read the scheme)
-router.get("/components", authenticateToken, listScoreComponents);
+router.get("/components", authenticateToken, normalizeTermParam, listScoreComponents);
 router.post("/components", authenticateToken, requireAdmin(), createScoreComponent);
 router.post("/components/copy", authenticateToken, requireAdmin(), copyScoreComponents);
 router.patch("/components/:id", authenticateToken, requireAdmin(), updateScoreComponent);
@@ -48,13 +49,13 @@ router.post("/schemes", authenticateToken, requireAdmin(), createScoreScheme);
 // Assessments (admins full; teachers read + score entry for their assignments)
 router.get("/", authenticateToken, listExams);
 router.post("/", authenticateToken, requireAdmin(), createExam);
-router.post("/ensure", authenticateToken, ensureExamSession);
-router.post("/scores", authenticateToken, submitExamScoresBulk);
-router.post("/scores/publish", authenticateToken, publishExamScores);
-router.post("/scores/unpublish", authenticateToken, unpublishExamScores);
-router.post("/scores/submit-for-approval", authenticateToken, submitExamForApproval);
-router.get("/scores", authenticateToken, getExamScoresBulk);
-router.delete("/scores", authenticateToken, deleteExamScoresBulk);
+router.post("/ensure", authenticateToken, normalizeTermParam, ensureExamSession);
+router.post("/scores", authenticateToken, normalizeTermParam, submitExamScoresBulk);
+router.post("/scores/publish", authenticateToken, normalizeTermParam, publishExamScores);
+router.post("/scores/unpublish", authenticateToken, normalizeTermParam, unpublishExamScores);
+router.post("/scores/submit-for-approval", authenticateToken, normalizeTermParam, submitExamForApproval);
+router.get("/scores", authenticateToken, normalizeTermParam, getExamScoresBulk);
+router.delete("/scores", authenticateToken, normalizeTermParam, deleteExamScoresBulk);
 router.get("/broadcasts", authenticateToken, listExamBroadcasts);
 router.post("/broadcasts/:id/approve", authenticateToken, approveExamBroadcast);
 router.post("/broadcasts/:id/reject", authenticateToken, rejectExamBroadcast);
