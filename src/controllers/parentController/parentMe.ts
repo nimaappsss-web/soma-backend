@@ -19,6 +19,7 @@ export const parentMe = async (req: AuthRequest, res: Response) => {
         phone: true,
         emailVerified: true,
         schoolId: true,
+        image: true,
       },
     });
 
@@ -64,6 +65,7 @@ export const parentMe = async (req: AuthRequest, res: Response) => {
       email: user.email,
       phone: user.phone,
       emailVerified: user.emailVerified,
+      image: user.image,
       hasAccount: true,
       status: "active" as const,
       schoolId: user.schoolId,
