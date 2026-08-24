@@ -10,4 +10,5 @@ export { studentStats } from "./studentStats";
 export { studentTimeline } from "./studentTimeline";
 export { studentMonthlyAttendance } from "./studentMonthlyAttendance";
 export { studentAcademics } from "./studentAcademics";
+export { promoteStudents } from "./promoteStudents";
 export { deleteStudent, bulkDeleteStudents } from "./deleteStudent";
