@@ -5,6 +5,7 @@ import { generateSecureToken } from "../../utils/tokens";
 import { sendTeacherInviteEmail } from "../../utils/email";
 import { getFrontendUrl } from "../../utils/frontendUrl";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { validateEmail } from "../../utils/validation";
 
 export const resendInvite = async (req: AuthRequest, res: Response) => {
   try {
@@ -13,6 +14,26 @@ export const resendInvite = async (req: AuthRequest, res: Response) => {
     }
 
     const { inviteId } = req.params;
+    const correctedEmail =
+      typeof req.body?.email === "string" && req.body.email.trim()
+        ? req.body.email.trim()
+        : undefined;
+
+    if (correctedEmail && !validateEmail(correctedEmail)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
+
+    if (correctedEmail) {
+      // Email is globally unique across all users — an invite can't claim one
+      // that already belongs to someone.
+      const taken = await prisma.user.findFirst({
+        where: { email: correctedEmail },
+        select: { id: true },
+      });
+      if (taken) {
+        return res.status(409).json({ error: "Email already in use by another user" });
+      }
+    }
 
     const invite = await prisma.inviteToken.findFirst({
       where: {
@@ -37,21 +58,30 @@ export const resendInvite = async (req: AuthRequest, res: Response) => {
     const newToken = generateSecureToken();
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
+    const nextEmail = correctedEmail ?? invite.invitedEmail;
+
     await prisma.inviteToken.update({
       where: { id: invite.id },
-      data: { token: newToken, expiresAt },
+      data: {
+        token: newToken,
+        expiresAt,
+        ...(correctedEmail ? { invitedEmail: correctedEmail } : {}),
+      },
     });
 
-    if (invite.invitedEmail) {
+    if (nextEmail) {
       try {
-        await sendTeacherInviteEmail(invite.invitedEmail, school.name, newToken, invite.invitedEmail, invite.invitedPhone, getFrontendUrl(req));
+        await sendTeacherInviteEmail(nextEmail, school.name, newToken, nextEmail, invite.invitedPhone, getFrontendUrl(req));
       } catch (err: any) {
         console.error("Failed to resend invite email:", err?.message || err);
       }
     }
 
     res.json({
-      message: "Invite resent successfully",
+      message: correctedEmail
+        ? `Invite resent to ${nextEmail}`
+        : "Invite resent successfully",
+      invitedEmail: nextEmail,
       expiresAt,
     });
   } catch (error) {
