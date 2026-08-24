@@ -73,7 +73,7 @@ export const broadcastCa = async (req: AuthRequest, res: Response) => {
         componentId: { in: componentIds },
         NOT: { type: "EXAM" },
       },
-      data: { visibleToParents: true },
+      data: { visibleToParents: true, lastScoreEditAt: null, lastScoreEditedBy: null },
     });
 
     if (target.count === 0) {

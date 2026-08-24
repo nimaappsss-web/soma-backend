@@ -3,7 +3,7 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { resolveSession } from "../../utils/academicTerm";
-import { canAccessExam, isAdminUser } from "../../utils/examAccess";
+import { canAccessExam, isAdminUser, isFormTeacherOf } from "../../utils/examAccess";
 
 /**
  * Teacher-scoped "broadcast to parents". Flips visibleToParents on the exam
@@ -50,8 +50,12 @@ export const publishExamScores = async (req: AuthRequest, res: Response) => {
 
     if (!isAdminUser(req.user)) {
       const hasAccess = await canAccessExam(req.user, { schoolId, subjectId, classId });
-      if (!hasAccess) {
-        return res.status(403).json({ error: "Insufficient permissions" });
+      // Broadcasting rights belong exclusively to the class teacher.
+      const isFormTeacher = await isFormTeacherOf(req.user.userId, classId);
+      if (!hasAccess || !isFormTeacher) {
+        return res
+          .status(403)
+          .json({ error: "Only the class teacher can broadcast these results" });
       }
     }
 
@@ -74,7 +78,7 @@ export const publishExamScores = async (req: AuthRequest, res: Response) => {
 
     const updated = await prisma.examSession.update({
       where: { id: exam.id },
-      data: { visibleToParents: true },
+      data: { visibleToParents: true, lastScoreEditAt: null, lastScoreEditedBy: null },
       select: { id: true, name: true, type: true, visibleToParents: true },
     });
 

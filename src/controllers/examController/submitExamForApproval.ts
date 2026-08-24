@@ -3,7 +3,8 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { resolveSession } from "../../utils/academicTerm";
-import { canAccessExam, isAdminUser } from "../../utils/examAccess";
+import { canAccessExam, isAdminUser, isFormTeacherOf } from "../../utils/examAccess";
+import { notifyMany } from "../../utils/notifications";
 
 /**
  * Teacher submits a terminal exam session for principal approval so its
@@ -56,8 +57,12 @@ export const submitExamForApproval = async (req: AuthRequest, res: Response) => 
 
     if (!isAdminUser(req.user)) {
       const hasAccess = await canAccessExam(req.user, { schoolId, subjectId, classId });
-      if (!hasAccess) {
-        return res.status(403).json({ error: "Insufficient permissions" });
+      // Broadcasting rights belong exclusively to the class teacher.
+      const isFormTeacher = await isFormTeacherOf(req.user.userId, classId);
+      if (!hasAccess || !isFormTeacher) {
+        return res
+          .status(403)
+          .json({ error: "Only the class teacher can broadcast these results" });
       }
     }
 
@@ -82,6 +87,12 @@ export const submitExamForApproval = async (req: AuthRequest, res: Response) => 
       where: { examId: exam.id },
     });
 
+    // Resubmission means the broadcast owner has acknowledged any edits.
+    await prisma.examSession.update({
+      where: { id: exam.id },
+      data: { lastScoreEditAt: null, lastScoreEditedBy: null },
+    });
+
     const request = existing
       ? await prisma.examBroadcastRequest.update({
           where: { id: existing.id },
@@ -102,6 +113,29 @@ export const submitExamForApproval = async (req: AuthRequest, res: Response) => 
             note: note ?? null,
           },
         });
+
+    // Ping the principals so they know a submission is waiting for review.
+    const admins = await prisma.user.findMany({
+      where: { schoolId, role: { in: ["PRINCIPAL", "SCHOOL_ADMIN"] } },
+      select: { id: true },
+    });
+    if (admins.length > 0) {
+      const submitter = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { name: true },
+      });
+      await notifyMany(
+        schoolId,
+        admins.map((a) => a.id).filter((id) => id !== req.user!.userId),
+        {
+          title: "Exam results awaiting approval",
+          message: `${submitter?.name || "A teacher"} submitted ${subject.name} (${component.name}) exam results for ${classRecord.name}.`,
+          type: "EXAM",
+          route: "/admin/approvals",
+          data: { requestId: request.id, examId: exam.id },
+        },
+      );
+    }
 
     res.json({
       message: "Exam submitted for approval",

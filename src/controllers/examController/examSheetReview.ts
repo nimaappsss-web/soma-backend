@@ -135,7 +135,7 @@ export const approveExamSheetBroadcast = async (req: AuthRequest, res: Response)
           session: request.session,
           type: "EXAM",
         },
-        data: { visibleToParents: true },
+        data: { visibleToParents: true, lastScoreEditAt: null, lastScoreEditedBy: null },
       });
     }
 

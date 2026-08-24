@@ -117,7 +117,7 @@ export const approveExamBroadcast = async (req: AuthRequest, res: Response) => {
     const [, updatedRequest] = await prisma.$transaction([
       prisma.examSession.update({
         where: { id: request.examId },
-        data: { visibleToParents: true },
+        data: { visibleToParents: true, lastScoreEditAt: null, lastScoreEditedBy: null },
       }),
       prisma.examBroadcastRequest.update({
         where: { id: request.id },

@@ -4,6 +4,23 @@ import { JwtPayload } from "./jwt";
 export const isAdminUser = (user: JwtPayload): boolean =>
   ["PRINCIPAL", "SCHOOL_ADMIN"].includes(user.role);
 
+/**
+ * Broadcasting rights (CA -> parents, exam -> principal approval, hiding
+ * published results) belong exclusively to the class teacher of the class,
+ * or to admins. Subject teachers may only enter scores.
+ */
+export const isFormTeacherOf = async (
+  userId: string,
+  classId: string | null | undefined,
+): Promise<boolean> => {
+  if (!userId || !classId) return false;
+  const user = await prisma.user.findFirst({
+    where: { id: userId, formClassId: classId },
+    select: { id: true },
+  });
+  return !!user;
+};
+
 export interface AccessibleExam {
   schoolId: string;
   subjectId: string;

@@ -3,7 +3,7 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { resolveSession } from "../../utils/academicTerm";
-import { canAccessExam, isAdminUser } from "../../utils/examAccess";
+import { canAccessExam, isAdminUser, isFormTeacherOf } from "../../utils/examAccess";
 
 /**
  * Teacher-scoped "hide from parents" — the inverse of publish. Flips
@@ -51,8 +51,12 @@ export const unpublishExamScores = async (req: AuthRequest, res: Response) => {
 
     if (!isAdminUser(req.user)) {
       const hasAccess = await canAccessExam(req.user, { schoolId, subjectId, classId });
-      if (!hasAccess) {
-        return res.status(403).json({ error: "Insufficient permissions" });
+      // Broadcasting rights belong exclusively to the class teacher.
+      const isFormTeacher = await isFormTeacherOf(req.user.userId, classId);
+      if (!hasAccess || !isFormTeacher) {
+        return res
+          .status(403)
+          .json({ error: "Only the class teacher can broadcast these results" });
       }
     }
 

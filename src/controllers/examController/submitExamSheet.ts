@@ -6,6 +6,7 @@ import {
   resolveClassScope,
   assertFormTeacherOrAdmin,
 } from "../../utils/broadcastCenter";
+import { notifyMany } from "../../utils/notifications";
 
 /**
  * Form teacher submits the whole class's terminal-exam sheet for principal
@@ -95,6 +96,30 @@ export const submitExamSheet = async (req: AuthRequest, res: Response) => {
             teacherId: req.user.userId,
           },
         });
+
+    // Ping the principals so they know a sheet is waiting — the approvals
+    // list alone was too easy to miss.
+    const admins = await prisma.user.findMany({
+      where: { schoolId, role: { in: ["PRINCIPAL", "SCHOOL_ADMIN"] } },
+      select: { id: true },
+    });
+    if (admins.length > 0) {
+      const [teacher, cls] = await Promise.all([
+        prisma.user.findUnique({ where: { id: req.user.userId }, select: { name: true } }),
+        prisma.class.findUnique({ where: { id: classId }, select: { name: true } }),
+      ]);
+      await notifyMany(
+        schoolId,
+        admins.map((a) => a.id).filter((id) => id !== req.user!.userId),
+        {
+          title: "Exam sheet awaiting approval",
+          message: `${teacher?.name || "A form teacher"} submitted the ${cls?.name || "class"} exam sheet for approval.`,
+          type: "EXAM",
+          route: "/admin/approvals",
+          data: { requestId: record.id, classId, term, session: resolvedSession },
+        },
+      );
+    }
 
     res.json({
       message: "Exam sheet submitted for principal approval",

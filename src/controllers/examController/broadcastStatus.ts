@@ -195,6 +195,18 @@ export const broadcastStatus = async (req: AuthRequest, res: Response) => {
           }
         : null,
       examDeliveredStudentIds: delivered.map((d) => d.studentId),
+      // Sessions whose scores were changed by someone other than the class
+      // teacher since the last broadcast/review — used to badge the tab.
+      edits: sessions
+        .filter((s) => s.lastScoreEditAt)
+        .map((s) => ({
+          examId: s.id,
+          subjectId: s.subjectId,
+          componentName: s.component?.name ?? s.name,
+          type: s.type,
+          editedAt: s.lastScoreEditAt!.toISOString(),
+          editedBy: s.lastScoreEditedBy,
+        })),
     });
   } catch (error) {
     const status = (error as { statusCode?: number })?.statusCode ?? 500;

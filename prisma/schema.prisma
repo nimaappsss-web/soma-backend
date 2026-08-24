@@ -454,6 +454,11 @@ model ExamSession {
   date        DateTime
   status      String   @default("DRAFT") // DRAFT, PUBLISHED, COMPLETED
   visibleToParents Boolean @default(false) // teacher broadcast flag (kept editable)
+  // Post-broadcast edit tracking: set when someone other than the class teacher
+  // changes scores on a broadcasted/requested session; cleared when the class
+  // teacher (or an admin) re-broadcasts, resubmits or reviews.
+  lastScoreEditAt   DateTime?
+  lastScoreEditedBy String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
