@@ -8,6 +8,7 @@ import { generateOTP } from "../../utils/tokens";
 import { prisma } from "../../utils/prisma";
 import { AuthRequest } from "../../types";
 import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
+import { sendCloudTemplate, isCloudApiConfigured } from "../../utils/whatsappCloud";
 import { cleanPhoneNumber, localPhoneNumber } from "../../utils/whatsapp";
 import { otpWhatsAppMessage, SOMA_WHITE_LOGO } from "../../utils/whatsappTemplates";
 
@@ -33,11 +34,31 @@ export const sendOTP = async (req: AuthRequest, res: Response) => {
         data: { phone: normalizedPhone, code, expiresAt },
       });
 
-      const delivery = await sendBrandedWhatsAppMessage(
-        cleanPhoneNumber(normalizedPhone),
-        otpWhatsAppMessage(code),
-        { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
-      );
+      const otpTemplateId = process.env.WHATSAPP_OTP_TEMPLATE_ID;
+      let delivery;
+
+      const otpUser = await prisma.user.findFirst({
+        where: { phone: normalizedPhone },
+        select: { schoolId: true },
+      });
+      const schoolName = otpUser?.schoolId
+        ? (await prisma.school.findUnique({ where: { id: otpUser.schoolId }, select: { name: true } }))?.name || "Soma"
+        : "Soma";
+
+      if (isCloudApiConfigured() && otpTemplateId) {
+        delivery = await sendCloudTemplate(
+          cleanPhoneNumber(normalizedPhone),
+          otpTemplateId,
+          "en",
+          [{ type: "text", text: code }],
+        );
+      } else {
+        delivery = await sendBrandedWhatsAppMessage(
+          cleanPhoneNumber(normalizedPhone),
+          otpWhatsAppMessage(schoolName, code),
+          { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
+        );
+      }
 
       if (!delivery.ok) {
         console.warn(`[sendOTP] WhatsApp delivery failed for ${normalizedPhone}: ${delivery.error}`);

@@ -30,6 +30,7 @@ import subjectAssignmentsRoutes from "./routes/subject-assignments";
 import notificationRoutes from "./routes/notifications";
 import whatsappRoutes from "./routes/whatsapp";
 import { startSseHeartbeat } from "./utils/sse";
+import { isCloudApiConfigured } from "./utils/whatsappCloud";
 import { broadcastDataChanged } from "./middleware/broadcastDataChanged";
 
 import express, { Express, Request, Response } from "express";
@@ -103,7 +104,9 @@ app.listen(port, () => {
     console.error("WARNING: SENDGRID_API_KEY not set — email sending will fail");
   }
 
-  import("./utils/whatsappClient")
-    .then(({ initWhatsApp }) => initWhatsApp())
-    .catch((err) => console.error("Failed to init WhatsApp client:", err?.message || err));
+  if (isCloudApiConfigured()) {
+    console.log("[whatsapp] Cloud API active");
+  } else {
+    console.warn("[whatsapp] Not configured — set WHATSAPP_CLOUD_TOKEN and WHATSAPP_CLOUD_PHONE_NUMBER_ID");
+  }
 });
