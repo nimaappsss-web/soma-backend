@@ -7,7 +7,7 @@ import { generateAccessToken, generateRefreshToken, verifyRegistrationToken } fr
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendEmailOtp } from "../../utils/email";
 import { getFrontendUrl } from "../../utils/frontendUrl";
-import { generateOTP } from "../../utils/tokens";
+import { generateOTP, OTP_TTL_MS } from "../../utils/tokens";
 import { notifyMany } from "../../utils/notifications";
 
 export const acceptInvite = async (req: AuthRequest, res: Response) => {
@@ -143,7 +143,7 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
     if (!emailVerified) {
       try {
         const code = generateOTP();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        const expiresAt = new Date(Date.now() + OTP_TTL_MS);
         await prisma.oTP.create({ data: { email, code, expiresAt } });
         await sendEmailOtp(email, name, code, getFrontendUrl(req));
       } catch (err: any) {

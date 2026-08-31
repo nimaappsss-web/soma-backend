@@ -6,7 +6,7 @@ import { AuthRequest, RegisterPrincipalDto } from "../../types";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { sendEmailOtp } from "../../utils/email";
 import { getFrontendUrl } from "../../utils/frontendUrl";
-import { generateOTP } from "../../utils/tokens";
+import { generateOTP, OTP_TTL_MS } from "../../utils/tokens";
 import { prisma } from "../../utils/prisma";
 
 export const registerPrincipal = async (req: AuthRequest, res: Response) => {
@@ -71,7 +71,7 @@ export const registerPrincipal = async (req: AuthRequest, res: Response) => {
         data: {
           email: principal.email,
           code: otp,
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          expiresAt: new Date(Date.now() + OTP_TTL_MS),
         },
       });
       try {

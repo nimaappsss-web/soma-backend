@@ -2,7 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
-import { generateOTP } from "../../utils/tokens";
+import { generateOTP, OTP_TTL_MS } from "../../utils/tokens";
 import { sendEmailOtp } from "../../utils/email";
 import { getFrontendUrl } from "../../utils/frontendUrl";
 
@@ -166,7 +166,7 @@ export const updateTeacher = async (req: AuthRequest, res: Response) => {
           data: {
             email: nextEmail!,
             code,
-            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            expiresAt: new Date(Date.now() + OTP_TTL_MS),
           },
         });
         await sendEmailOtp(nextEmail!, updated.name || "Teacher", code, getFrontendUrl(req));

@@ -9,7 +9,7 @@ import { AuthRequest, RegisterSchoolDto } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { sendEmailOtp } from "../../utils/email";
 import { getFrontendUrl } from "../../utils/frontendUrl";
-import { generateOTP } from "../../utils/tokens";
+import { generateOTP, OTP_TTL_MS } from "../../utils/tokens";
 
 export const register = async (req: AuthRequest, res: Response) => {
   try {
@@ -92,7 +92,7 @@ export const register = async (req: AuthRequest, res: Response) => {
         data: {
           email: principal.email,
           code: otp,
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          expiresAt: new Date(Date.now() + OTP_TTL_MS),
         },
       });
       try {
