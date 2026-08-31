@@ -25,7 +25,7 @@ const baseConnect = connectionString.includes("?")
 
 const pool = new Pool({
   connectionString: baseConnect,
-  max: 5,
+  max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
   allowExitOnIdle: false,

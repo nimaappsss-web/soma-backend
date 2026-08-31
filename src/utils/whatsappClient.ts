@@ -13,7 +13,7 @@ export const sendWhatsAppMessage = async (
   message: string,
 ): Promise<{ ok: boolean; error?: string }> => {
   if (!isCloudApiConfigured()) {
-    return { ok: false, error: "WhatsApp Cloud API not configured" };
+    return { ok: false, error: "Twilio WhatsApp not configured" };
   }
   return sendCloudText(phone, message);
 };
@@ -24,7 +24,7 @@ export const sendBrandedWhatsAppMessage = async (
   opts?: { logoUrl?: string; sendLogo?: boolean },
 ): Promise<{ ok: boolean; error?: string }> => {
   if (!isCloudApiConfigured()) {
-    return { ok: false, error: "WhatsApp Cloud API not configured" };
+    return { ok: false, error: "Twilio WhatsApp not configured" };
   }
   if (opts?.sendLogo && opts?.logoUrl) {
     return sendCloudImage(phone, opts.logoUrl, message);

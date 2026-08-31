@@ -42,6 +42,8 @@ const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+// The Twilio WhatsApp webhook posts application/x-www-form-urlencoded data.
+app.use("/api/whatsapp", express.urlencoded({ extended: false }));
 
 // Broadcast data-changed events to the user's other connected devices after
 // successful writes. Mounted before routes so it wraps every API request; the
@@ -105,8 +107,8 @@ app.listen(port, () => {
   }
 
   if (isCloudApiConfigured()) {
-    console.log("[whatsapp] Cloud API active");
+    console.log("[whatsapp] Twilio WhatsApp active");
   } else {
-    console.warn("[whatsapp] Not configured — set WHATSAPP_CLOUD_TOKEN and WHATSAPP_CLOUD_PHONE_NUMBER_ID");
+    console.warn("[whatsapp] Not configured — set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM");
   }
 });

@@ -7,10 +7,7 @@ import { getFrontendUrl } from "../../utils/frontendUrl";
 import { generateOTP } from "../../utils/tokens";
 import { prisma } from "../../utils/prisma";
 import { AuthRequest } from "../../types";
-import { sendBrandedWhatsAppMessage } from "../../utils/whatsappClient";
-import { sendCloudTemplate, isCloudApiConfigured } from "../../utils/whatsappCloud";
-import { cleanPhoneNumber, localPhoneNumber } from "../../utils/whatsapp";
-import { otpWhatsAppMessage, SOMA_WHITE_LOGO } from "../../utils/whatsappTemplates";
+import { localPhoneNumber } from "../../utils/whatsapp";
 
 export const sendOTP = async (req: AuthRequest, res: Response) => {
   try {
@@ -26,6 +23,18 @@ export const sendOTP = async (req: AuthRequest, res: Response) => {
 
       const normalizedPhone = localPhoneNumber(phone);
 
+      const user = await prisma.user.findFirst({
+        where: { phone: normalizedPhone },
+        select: { email: true, name: true },
+      });
+
+      if (!user?.email) {
+        return res.status(400).json({
+          error:
+            "No email on file for this phone. Please log in with your email instead.",
+        });
+      }
+
       await prisma.oTP.deleteMany({
         where: { phone: normalizedPhone, verified: false },
       });
@@ -34,37 +43,17 @@ export const sendOTP = async (req: AuthRequest, res: Response) => {
         data: { phone: normalizedPhone, code, expiresAt },
       });
 
-      const otpTemplateId = process.env.WHATSAPP_OTP_TEMPLATE_ID;
-      let delivery;
-
-      const otpUser = await prisma.user.findFirst({
-        where: { phone: normalizedPhone },
-        select: { schoolId: true },
-      });
-      const schoolName = otpUser?.schoolId
-        ? (await prisma.school.findUnique({ where: { id: otpUser.schoolId }, select: { name: true } }))?.name || "Soma"
-        : "Soma";
-
-      if (isCloudApiConfigured() && otpTemplateId) {
-        delivery = await sendCloudTemplate(
-          cleanPhoneNumber(normalizedPhone),
-          otpTemplateId,
-          "en",
-          [{ type: "text", text: code }],
-        );
-      } else {
-        delivery = await sendBrandedWhatsAppMessage(
-          cleanPhoneNumber(normalizedPhone),
-          otpWhatsAppMessage(schoolName, code),
-          { logoUrl: SOMA_WHITE_LOGO, sendLogo: true },
-        );
+      try {
+        await sendEmailOtp(user.email, user.name || "User", code, getFrontendUrl(req));
+        console.log(`OTP email sent successfully to ${user.email}`);
+      } catch (err: any) {
+        console.error("Send email OTP error:", err?.message || err);
+        if (err?.response) console.error("Error response:", err.response);
+        return res.status(500).json({
+          error: "Failed to send email",
+          detail: err?.message || "Unknown error",
+        });
       }
-
-      if (!delivery.ok) {
-        console.warn(`[sendOTP] WhatsApp delivery failed for ${normalizedPhone}: ${delivery.error}`);
-      }
-
-      console.log(`OTP for ${normalizedPhone}: ${code}`);
     } else if (email) {
       if (!validateEmail(email)) {
         return res.status(400).json({ error: "Invalid email format" });

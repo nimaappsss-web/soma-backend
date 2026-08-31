@@ -68,7 +68,7 @@ export const financeSummary = async (req: AuthRequest, res: Response) => {
       outstanding,
       collectionRate,
       byClass: classIds.map((cid) => ({
-        className: classMap[cid] || "Unknown",
+        className: classMap[cid] || "(deleted class)",
         expected: expectedByClassMap[cid] || 0,
         collected: collectedByClassMap[cid] || 0,
         outstanding: (expectedByClassMap[cid] || 0) - (collectedByClassMap[cid] || 0),
