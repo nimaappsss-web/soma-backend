@@ -1,37 +1,32 @@
+import { Resend } from "resend";
 import { welcomeHtml, teacherInviteHtml, emailOtpHtml, parentInviteHtml, passwordResetHtml } from "./emailTemplates";
 
-const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@gmail.com";
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
 
-const sendViaSendGrid = async (
+const resend = new Resend(RESEND_API_KEY);
+
+const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@checksoma.com";
+
+const sendViaResend = async (
   to: string,
   subject: string,
   html: string,
 ) => {
-  const apiKey = process.env.SENDGRID_API_KEY;
-  if (!apiKey) throw new Error("SENDGRID_API_KEY not set");
-
-  const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      personalizations: [{ to: [{ email: to }] }],
-      from: { email: FROM_EMAIL },
-      subject,
-      content: [{ type: "text/html", value: html }],
-    }),
+  const { error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject,
+    html,
   });
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`SendGrid API error (${res.status}): ${body}`);
+  if (error) {
+    throw new Error(`Resend API error: ${error.message}`);
   }
 };
 
 export const sendWelcomeEmail = async (to: string, name: string, frontendUrl?: string) => {
-  await sendViaSendGrid(
+  await sendViaResend(
     to,
     "Welcome to Nima — Verify Your Account",
     welcomeHtml(name, frontendUrl),
@@ -46,7 +41,7 @@ export const sendTeacherInviteEmail = async (
   phone?: string | null,
   frontendUrl?: string,
 ) => {
-  await sendViaSendGrid(
+  await sendViaResend(
     to,
     `You're Invited to Join ${schoolName} on Nima`,
     teacherInviteHtml(schoolName, token, email, phone, frontendUrl),
@@ -65,7 +60,7 @@ export const sendParentInviteEmail = async (
 ) => {
   if (process.env.DISABLE_EMAILS === "true") return;
 
-  await sendViaSendGrid(
+  await sendViaResend(
     to,
     `Your child has been registered at ${schoolName}`,
     parentInviteHtml(schoolName, parentName, studentName, token, email, phone, frontendUrl),
@@ -85,7 +80,7 @@ export const trySendParentEmail = async (
   if (process.env.DISABLE_EMAILS === "true") return { ok: true };
 
   try {
-    await sendViaSendGrid(
+    await sendViaResend(
       to,
       `Your child has been registered at ${schoolName}`,
       parentInviteHtml(schoolName, parentName, studentName, token, email, phone, frontendUrl),
@@ -102,7 +97,7 @@ export const sendEmailOtp = async (
   otp: string,
   frontendUrl?: string,
 ) => {
-  await sendViaSendGrid(
+  await sendViaResend(
     to,
     "Verify Your Email — Nima",
     emailOtpHtml(name, otp, frontendUrl),
@@ -120,7 +115,7 @@ export const sendPasswordResetEmail = async (
   const frontend = (frontendUrl || process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
   const resetUrl = `${frontend}/reset-password?token=${encodeURIComponent(token)}`;
 
-  await sendViaSendGrid(
+  await sendViaResend(
     to,
     "Reset Your Password — Soma",
     passwordResetHtml(name, resetUrl, frontend),
