@@ -97,6 +97,20 @@ export const submitExamSheet = async (req: AuthRequest, res: Response) => {
           },
         });
 
+    // Re-submitting the sheet acknowledges any post-broadcast edits, so clear
+    // the "scores changed since your last broadcast" flags on the class's EXAM
+    // sessions. Without this the warning lingers even after a fresh broadcast.
+    await prisma.examSession.updateMany({
+      where: {
+        schoolId,
+        classId,
+        term,
+        session: resolvedSession,
+        type: "EXAM",
+      },
+      data: { lastScoreEditAt: null, lastScoreEditedBy: null },
+    });
+
     // Ping the principals so they know a sheet is waiting — the approvals
     // list alone was too easy to miss.
     const admins = await prisma.user.findMany({

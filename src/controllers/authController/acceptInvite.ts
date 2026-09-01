@@ -56,6 +56,13 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "A user with this email already exists" });
     }
 
+    // Non-teaching staff (BURSAR, STAFF) are administrative roles the
+    // principal has already vetted by inviting them — they're approved on
+    // acceptance. TEACHER roles still queue for the principal's explicit
+    // approval.
+    const autoApprove = inviteToken.role === "BURSAR" || inviteToken.role === "STAFF";
+    const approvalStatus = autoApprove ? "APPROVED" : "PENDING";
+
     const passwordHash = await hashPassword(password);
 
     const invitedEmail = inviteToken.invitedEmail;
@@ -96,7 +103,7 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
           passwordHash,
           emailVerified,
           active: true,
-          approvalStatus: "PENDING",
+          approvalStatus,
           formClassId: formClassId || null,
         },
         include: {
@@ -185,7 +192,7 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
         schoolId: result.schoolId,
         emailVerified,
         active: result.active,
-        approvalStatus: "PENDING",
+        approvalStatus,
         formClassId: result.formClassId,
         formClass: result.formClass?.name || null,
       },

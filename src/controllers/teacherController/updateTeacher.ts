@@ -2,9 +2,6 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
-import { generateOTP, OTP_TTL_MS } from "../../utils/tokens";
-import { sendEmailOtp } from "../../utils/email";
-import { getFrontendUrl } from "../../utils/frontendUrl";
 
 interface AssignmentInput {
   subjectId: string;
@@ -153,34 +150,9 @@ export const updateTeacher = async (req: AuthRequest, res: Response) => {
       });
     });
 
-    // A changed email locks the teacher out until the new address is
-    // verified — deliver the verification code proactively so it's
-    // self-service instead of a silent lockout.
-    if (emailChanged) {
-      try {
-        const code = generateOTP();
-        await prisma.oTP.deleteMany({
-          where: { email: nextEmail!, verified: false },
-        });
-        await prisma.oTP.create({
-          data: {
-            email: nextEmail!,
-            code,
-            expiresAt: new Date(Date.now() + OTP_TTL_MS),
-          },
-        });
-        await sendEmailOtp(nextEmail!, updated.name || "Teacher", code, getFrontendUrl(req));
-      } catch (err: any) {
-        console.error(
-          "Failed to send verification email after teacher email change:",
-          err?.message || err,
-        );
-      }
-    }
-
     res.json({
       teacher: updated,
-      ...(emailChanged ? { message: "Verification code sent to the new email" } : {}),
+      ...(emailChanged ? { message: "Email changed. Teacher must verify via login OTP." } : {}),
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Update Teacher");
