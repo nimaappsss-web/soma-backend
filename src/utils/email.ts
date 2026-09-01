@@ -1,16 +1,17 @@
 import { Resend } from "resend";
 import { welcomeHtml, teacherInviteHtml, emailOtpHtml, parentInviteHtml, passwordResetHtml } from "./emailTemplates";
+import { envGet } from "./renderSecrets";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
-const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@checksoma.com";
+const FROM_EMAIL = envGet("FROM_EMAIL") || "noreply@checksoma.com";
 
 const getResend = () => {
-  if (!RESEND_API_KEY) {
+  const apiKey = envGet("RESEND_API_KEY");
+  if (!apiKey) {
     throw new Error(
       "Resend not configured — set RESEND_API_KEY to enable email sending",
     );
   }
-  return new Resend(RESEND_API_KEY);
+  return new Resend(apiKey);
 };
 
 const sendViaResend = async (

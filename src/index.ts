@@ -1,4 +1,7 @@
 import "dotenv/config";
+import { loadRenderSecrets } from "./utils/renderSecrets";
+
+loadRenderSecrets();
 import { errorHandler } from "./middleware/errorHandler";
 import { swaggerSpec } from "./config/swagger";
 import uploadRoutes from "./routes/upload";
