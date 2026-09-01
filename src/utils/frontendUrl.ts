@@ -1,13 +1,18 @@
 import { Request } from "express";
 
 // Resolve which frontend URL email/WhatsApp links should point to.
-// Prefers the origin of the actual requesting frontend (sent via the
-// X-Frontend-Origin header) so localhost dev and the Vercel deployment each
-// receive working links. Falls back to the FRONTEND_URL env var.
+// The canonical FRONTEND_URL env var always wins so links use the real
+// domain even when visitors arrive via an old deployment alias or send a
+// different origin header. Falls back to the requesting frontend's origin
+// (X-Frontend-Origin) so localhost dev still works when FRONTEND_URL is unset.
 export const getFrontendUrl = (req?: Request): string => {
+  const envUrl = process.env.FRONTEND_URL;
+  if (envUrl && /^https?:\/\//.test(envUrl)) {
+    return envUrl.replace(/\/+$/, "");
+  }
   const fromHeader = req?.headers?.["x-frontend-origin"];
   if (typeof fromHeader === "string" && fromHeader.startsWith("http")) {
     return fromHeader.replace(/\/+$/, "");
   }
-  return (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+  return "http://localhost:5173";
 };
