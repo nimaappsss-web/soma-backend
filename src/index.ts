@@ -102,8 +102,8 @@ app.listen(port, () => {
 
   startSseHeartbeat();
 
-  if (!process.env.SENDGRID_API_KEY) {
-    console.error("WARNING: SENDGRID_API_KEY not set — email sending will fail");
+  if (!process.env.RESEND_API_KEY) {
+    console.error("WARNING: RESEND_API_KEY not set — email sending will fail");
   }
 
   if (isCloudApiConfigured()) {
