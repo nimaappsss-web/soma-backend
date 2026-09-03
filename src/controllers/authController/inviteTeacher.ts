@@ -73,7 +73,7 @@ export const inviteTeacher = async (req: AuthRequest, res: Response) => {
     const token = generateSecureToken();
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-    await prisma.inviteToken.create({
+    const invite = await prisma.inviteToken.create({
       data: {
         schoolId: req.user.schoolId,
         invitedBy: req.user.userId,
@@ -89,7 +89,14 @@ export const inviteTeacher = async (req: AuthRequest, res: Response) => {
     try {
       await sendTeacherInviteEmail(teacherEmail, school.name, token, teacherEmail, teacherPhone, frontendUrl);
     } catch (err: any) {
-      console.error("Failed to send invite email:", err?.message || err);
+      const msg = err?.message || "Unknown email error";
+      console.error("Failed to send invite email:", msg);
+      // Persist the delivery failure so the teacher list can surface it and
+      // offer a resend instead of silently succeeding.
+      await prisma.inviteToken.update({
+        where: { id: invite.id },
+        data: { emailFailed: true, emailError: msg },
+      }).catch(() => {});
     }
 
     if (teacherPhone) {

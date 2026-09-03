@@ -72,8 +72,19 @@ export const resendInvite = async (req: AuthRequest, res: Response) => {
     if (nextEmail) {
       try {
         await sendTeacherInviteEmail(nextEmail, school.name, newToken, nextEmail, invite.invitedPhone, getFrontendUrl(req));
+        // Delivery succeeded — clear any previous failure flag.
+        if (invite.emailFailed) {
+          await prisma.inviteToken
+            .update({ where: { id: invite.id }, data: { emailFailed: false, emailError: null } })
+            .catch(() => {});
+        }
       } catch (err: any) {
-        console.error("Failed to resend invite email:", err?.message || err);
+        const msg = err?.message || "Unknown email error";
+        console.error("Failed to resend invite email:", msg);
+        // Persist the delivery failure so the teacher list can surface it.
+        await prisma.inviteToken
+          .update({ where: { id: invite.id }, data: { emailFailed: true, emailError: msg } })
+          .catch(() => {});
       }
     }
 
