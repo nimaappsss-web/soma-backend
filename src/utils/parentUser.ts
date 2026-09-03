@@ -25,11 +25,14 @@ export const ensureParentUser = async (
   // Reuse an existing account (matched by email or phone) so multiple children
   // with the same contact all resolve to it via Student.parentPhone/parentEmail.
   const existing = await prisma.user.findFirst({
-    where: parentEmail && normalizedPhone
-      ? { OR: [{ email: parentEmail }, { phone: normalizedPhone }] }
-      : parentEmail
-        ? { email: parentEmail }
-        : { phone: normalizedPhone },
+    where: {
+      schoolId,
+      ...(parentEmail && normalizedPhone
+        ? { OR: [{ email: parentEmail }, { phone: normalizedPhone }] }
+        : parentEmail
+          ? { email: parentEmail }
+          : { phone: normalizedPhone }),
+    },
   });
 
   // Auto-create the parent account so the parent shows up immediately (not null).

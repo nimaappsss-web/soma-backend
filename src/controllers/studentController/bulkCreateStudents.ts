@@ -8,6 +8,7 @@ import { trySendParentEmail } from "../../utils/email";
 import { getFrontendUrl } from "../../utils/frontendUrl";
 import { localPhoneNumber } from "../../utils/whatsapp";
 import { normalizePersonName } from "../../utils/personName";
+import { validateParentContact } from "../../utils/parentContactValidation";
 import { generateInvoicesForStudents } from "../../utils/generateStudentInvoices";
 
 export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
@@ -35,6 +36,19 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
         errors.push({ admissionNo: s.admissionNo || "unknown", error: "Name and class are required" });
         return false;
       }
+
+      // Validate parent contact (require phone if no email; valid email + phone).
+      const contactCheck = validateParentContact({
+        parentEmail: s.parentEmail,
+        parentPhone: s.parentPhone,
+      });
+      if (!contactCheck.ok) {
+        errors.push({ admissionNo: s.admissionNo || s.name || "unknown", error: contactCheck.error! });
+        return false;
+      }
+      // Store normalized phone so the rest of the flow uses a consistent value.
+      s._parentPhone = contactCheck.normalizedPhone;
+
       return true;
     });
 
@@ -50,10 +64,10 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
     const uniqueClassIds = [...new Set(validStudents.map((s) => s.classId))];
 
     // --- Fetch existing data (3 parallel queries) ---
-    const [existingStudents, school, allSchoolClasses] = await Promise.all([
+    const [existingStudents, school, allSchoolClasses, schoolUsers] = await Promise.all([
       prisma.student.findMany({
         where: { schoolId },
-        select: { name: true, classId: true, admissionNo: true },
+        select: { name: true, classId: true, admissionNo: true, parentEmail: true, parentPhone: true },
       }),
       prisma.school.findUnique({
         where: { id: schoolId },
@@ -62,6 +76,10 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
       prisma.class.findMany({
         where: { schoolId },
         select: { id: true, name: true },
+      }),
+      prisma.user.findMany({
+        where: { schoolId, role: { not: "PARENT" } },
+        select: { email: true, phone: true, name: true, role: true },
       }),
     ]);
 
@@ -120,6 +138,14 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
     const toCreate: any[] = [];
     const localAdmissionSet = new Set(existingAdmissionSet);
     const localNameClassSet = new Set<string>();
+    // School members (principal/teachers/parents) cannot have their own contact
+    // re-used as a parent contact. Siblings deliberately share a parent contact,
+    // so contacts belonging to other students are NOT blocked here.
+    const memberContactSet = new Set<string>();
+    for (const u of schoolUsers) {
+      if (u.email) memberContactSet.add(`email:${u.email.toLowerCase()}`);
+      if (u.phone) memberContactSet.add(`phone:${localPhoneNumber(u.phone)}`);
+    }
 
     for (const s of validStudents) {
       const actualClassId = resolvedClassIds.get(s.classId)!;
@@ -130,6 +156,19 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
         continue;
       }
       localNameClassSet.add(nameClassKey);
+
+      // Reject a parent contact that belongs to a school member (not siblings).
+      const contactKeys: string[] = [];
+      if (s.parentEmail) contactKeys.push(`email:${s.parentEmail.toLowerCase()}`);
+      if (s._parentPhone) contactKeys.push(`phone:${s._parentPhone}`);
+      const dupContact = contactKeys.find((k) => memberContactSet.has(k));
+      if (dupContact) {
+        errors.push({
+          admissionNo: s.admissionNo || s.name || "unknown",
+          error: "Parent contact belongs to a school member and can't be used.",
+        });
+        continue;
+      }
 
       let admissionNo = s.admissionNo;
       if (!admissionNo) {
@@ -154,7 +193,7 @@ export const bulkCreateStudents = async (req: AuthRequest, res: Response) => {
         address: s.address || null,
         imageUrl: s.imageUrl || null,
         parentName: normalizePersonName(s.parentName) || null,
-        parentPhone: s.parentPhone ? localPhoneNumber(s.parentPhone) : null,
+        parentPhone: s._parentPhone,
         parentEmail: s.parentEmail || null,
         ...(s.updatedAt ? { updatedAt: new Date(s.updatedAt) } : {}),
         ...(s.syncStatus ? { syncStatus: s.syncStatus } : {}),

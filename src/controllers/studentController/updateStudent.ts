@@ -2,11 +2,11 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
-import { localPhoneNumber } from "../../utils/whatsapp";
 import { sendParentInviteEmail } from "../../utils/email";
 import { getFrontendUrl } from "../../utils/frontendUrl";
 import { ensureParentUser } from "../../utils/parentUser";
 import { normalizePersonName } from "../../utils/personName";
+import { validateParentContact, findUserContactConflict } from "../../utils/parentContactValidation";
 
 export const updateStudent = async (req: AuthRequest, res: Response) => {
   try {
@@ -31,6 +31,37 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
 
     if (!student) {
       return res.status(404).json({ error: "Student not found" });
+    }
+
+    // Resolve effective final contact values (sent fields override existing).
+    const effectiveEmail =
+      parentEmail !== undefined ? (parentEmail || null) : student.parentEmail;
+    const effectivePhone =
+      parentPhone !== undefined ? (parentPhone || null) : student.parentPhone;
+
+    // Validate parent contact (require phone if no email; valid email + phone).
+    const contactCheck = validateParentContact({
+      parentEmail: effectiveEmail,
+      parentPhone: effectivePhone,
+    });
+    if (!contactCheck.ok) {
+      return res.status(400).json({ error: contactCheck.error });
+    }
+    const finalParentPhone = contactCheck.normalizedPhone;
+
+    // Reject a parent contact that belongs to an existing school member
+    // (e.g. a principal/teacher's own phone number). Siblings deliberately
+    // share a contact, so there is no duplicate-student check here — the
+    // parent is auto-linked to all children that share it.
+    const userConflict = await findUserContactConflict(req.user.schoolId, {
+      parentEmail: effectiveEmail,
+      parentPhone: effectivePhone,
+    });
+    if (userConflict) {
+      const conflictContact = userConflict.email || userConflict.phone;
+      return res.status(400).json({
+        error: `This contact (${conflictContact}) belongs to an existing ${String(userConflict.role).toLowerCase()} member: ${userConflict.name}. A parent contact can't be a school member's own number.`,
+      });
     }
 
     // Conflict detection: if client sends updatedAt, reject if server's record is newer
@@ -58,7 +89,7 @@ export const updateStudent = async (req: AuthRequest, res: Response) => {
         ...(address !== undefined ? { address } : {}),
         ...(imageUrl !== undefined ? { imageUrl } : {}),
         ...(parentName !== undefined ? { parentName: normalizePersonName(parentName) || null } : {}),
-        ...(parentPhone !== undefined ? { parentPhone: parentPhone ? localPhoneNumber(parentPhone) : null } : {}),
+        ...(parentPhone !== undefined ? { parentPhone: finalParentPhone } : {}),
         ...(parentEmail !== undefined ? { parentEmail } : {}),
         ...(status !== undefined ? { status } : {}),
       },

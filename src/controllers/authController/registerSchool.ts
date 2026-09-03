@@ -145,6 +145,8 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
         role: result.user.role,
         image: result.user.image,
         schoolId: result.user.schoolId,
+        schoolName: result.school.name,
+        logoUrl: result.school.logo,
         emailVerified: result.user.emailVerified,
         hasSchool: !!result.user.schoolId,
         needsSchoolSetup: false,

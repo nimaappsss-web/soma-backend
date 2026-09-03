@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { studentIdsForParent } from "../../utils/parentScoping";
 
 export const listReceipts = async (req: AuthRequest, res: Response) => {
   try {
@@ -19,7 +20,17 @@ export const listReceipts = async (req: AuthRequest, res: Response) => {
       status: "CONFIRMED",
       receiptNo: { not: null },
     };
-    if (studentId) where.studentId = studentId;
+
+    if (req.user.role === "PARENT") {
+      const studentIds = await studentIdsForParent(req.user.schoolId, req.user.userId);
+      if (studentId && studentIds.includes(studentId as string)) {
+        where.studentId = studentId;
+      } else {
+        where.studentId = { in: studentIds };
+      }
+    } else {
+      if (studentId) where.studentId = studentId;
+    }
 
     let filteredInvoiceIds: string[] | null = null;
     if (term || session) {

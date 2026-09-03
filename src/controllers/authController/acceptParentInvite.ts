@@ -48,13 +48,18 @@ export const acceptParentInvite = async (req: AuthRequest, res: Response) => {
 
     const normalizedPhone = phone ? localPhoneNumber(phone) : undefined;
 
-    // Check if user already exists (was created by an older version or another flow)
+    // Check if user already exists within this school (was created by an older
+    // version or another flow). Scoped by schoolId so a parent with an account
+    // at School A can still accept invites at School B.
     const existingUser = await prisma.user.findFirst({
-      where: email && normalizedPhone
-        ? { OR: [{ email }, { phone: normalizedPhone }] }
-        : email
-          ? { email }
-          : { phone: normalizedPhone },
+      where: {
+        schoolId: inviteToken.schoolId,
+        ...(email && normalizedPhone
+          ? { OR: [{ email }, { phone: normalizedPhone }] }
+          : email
+            ? { email }
+            : { phone: normalizedPhone }),
+      },
     });
 
     if (existingUser && existingUser.passwordHash) {
