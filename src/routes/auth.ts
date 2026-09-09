@@ -29,6 +29,7 @@ import {
   generateInviteLink,
 } from "../controllers/authController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
+import { gateApproval } from "../middleware/approval";
 import { getDataVersion } from "../utils/dataVersion";
 import {
   loginLimiter,
@@ -358,7 +359,7 @@ router.get("/data-version", authenticateToken, (req, res) => {
  *       403:
  *         description: Only principals can invite teachers
  */
-router.post("/invite-teacher", authenticateToken, requireAdmin(), inviteTeacherLimiter, inviteTeacher);
+router.post("/invite-teacher", authenticateToken, requireAdmin(), gateApproval, inviteTeacherLimiter, inviteTeacher);
 
 /**
  * @swagger
@@ -528,7 +529,7 @@ router.post("/reset-password", resetPasswordLimiter, resetPassword);
  *       201:
  *         description: Bulk invites created
  */
-router.post("/bulk-invite", authenticateToken, requireAdmin(), bulkInviteLimiter, bulkInviteTeachers);
+router.post("/bulk-invite", authenticateToken, requireAdmin(), gateApproval, bulkInviteLimiter, bulkInviteTeachers);
 
 /**
  * @swagger
@@ -685,6 +686,6 @@ router.post("/complete-registration", authenticateToken, completeRegistration);
 router.post("/change-password", authenticateToken, changePassword);
 router.post("/set-password", authenticateToken, setPassword);
 
-router.post("/generate-invite-link", authenticateToken, requireAdmin(), generateInviteLink);
+router.post("/generate-invite-link", authenticateToken, requireAdmin(), gateApproval, generateInviteLink);
 
 export default router;

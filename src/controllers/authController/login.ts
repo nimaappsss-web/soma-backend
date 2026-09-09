@@ -7,6 +7,7 @@ import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 import { createErrorResponse } from "../../utils/errorHandler";
 import { broadcastToUser } from "../../utils/sse";
 import { markDataChanged } from "../../utils/dataVersion";
+import { getSupportEmail } from "../../utils/platformNotify";
 
 export const login = async (req: AuthRequest, res: Response) => {
   try {
@@ -24,7 +25,18 @@ export const login = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findFirst({
       where: isEmail ? { email: identifier } : { phone: identifier },
-      include: { school: { select: { name: true } } },
+      include: {
+        school: {
+          select: {
+            name: true,
+            active: true,
+            approvalStatus: true,
+            rejectionReason: true,
+            schoolCode: true,
+            createdAt: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -57,6 +69,20 @@ export const login = async (req: AuthRequest, res: Response) => {
         .json({ error: "This account uses OTP login. Please request an OTP." });
     } else {
       return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // A REJECTED school is hard-blocked everywhere. PENDING is allowed in with
+    // read-only access (enforced by gateApproval on school routes).
+    if (user.school?.approvalStatus === "REJECTED") {
+      const supportEmail = await getSupportEmail();
+      return res.status(403).json({
+        error: user.school.rejectionReason
+          ? `Your school was not approved. Reason: ${user.school.rejectionReason}`
+          : "Your school was not approved. Please reach out to support.",
+        code: "SCHOOL_REJECTED",
+        reason: user.school.rejectionReason ?? null,
+        supportEmail,
+      });
     }
 
     const accessToken = generateAccessToken({
@@ -115,6 +141,8 @@ export const login = async (req: AuthRequest, res: Response) => {
       changedAt: new Date().toISOString(),
     });
 
+    const supportEmail = await getSupportEmail();
+
     res.json({
       message: "Login successful",
       user: {
@@ -127,11 +155,16 @@ export const login = async (req: AuthRequest, res: Response) => {
         schoolName: user.school?.name || null,
         emailVerified: user.emailVerified,
         approvalStatus: user.approvalStatus,
+        schoolApprovalStatus: user.school?.approvalStatus ?? null,
+        schoolRejectionReason: user.school?.rejectionReason ?? null,
+        schoolCode: user.school?.schoolCode ?? null,
+        schoolRegisteredAt: user.school?.createdAt?.toISOString() ?? null,
         hasSchool: !!user.schoolId,
         needsSchoolSetup: user.role === "PRINCIPAL" && !user.schoolId,
         needsPhoneSetup: !user.phone,
         needsRegistration: !user.passwordHash,
       },
+      supportEmail,
       accessToken,
       refreshToken,
     });

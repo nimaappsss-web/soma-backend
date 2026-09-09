@@ -7,6 +7,7 @@ import { prisma } from "../../utils/prisma";
 import { getSubjectsForSchool } from "../../data/subjects";
 import { generatePrefix, generateSchoolCode } from "../../utils/admission";
 import { SCHOOL_CLASS_MAP } from "../../utils/classSeed";
+import { notifyPlatformAdmins } from "../../utils/platformNotify";
 
 export const registerSchool = async (req: AuthRequest, res: Response) => {
   try {
@@ -14,7 +15,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { schoolName, state, lga, schoolType, logoUrl, arms, address, schoolCode, manualBankDetails } = req.body;
+    const { schoolName, state, lga, schoolType, logoUrl, arms, address, manualBankDetails } = req.body;
 
     const principal = await prisma.user.findUnique({
       where: { id: req.user.userId },
@@ -34,7 +35,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
       const school = await tx.school.create({
         data: {
           name: schoolName,
-          schoolCode: schoolCode?.toUpperCase() || generateSchoolCode(schoolName),
+          schoolCode: generateSchoolCode(schoolName),
           address: address || "",
           state,
           lga,
@@ -42,6 +43,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
           admissionPattern: `${prefix}/{year}/{seq}`,
           arms: arms && arms.length > 0 ? JSON.stringify(arms) : "[]",
           logo: logoUrl || null,
+          approvalStatus: "PENDING",
           manualBankDetails:
             manualBankDetails && typeof manualBankDetails === "object"
               ? manualBankDetails
@@ -79,7 +81,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
 
       const updatedUser = await tx.user.update({
         where: { id: principal.id },
-        data: { schoolId: school.id },
+        data: { schoolId: school.id, approvalStatus: "PENDING" },
       });
 
       const tokenPayload = {
@@ -136,6 +138,7 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
         schoolType: JSON.parse(result.school.schoolType),
         address: result.school.address,
         admissionPattern: result.school.admissionPattern,
+        approvalStatus: result.school.approvalStatus,
       },
       user: {
         id: result.user.id,
@@ -148,13 +151,34 @@ export const registerSchool = async (req: AuthRequest, res: Response) => {
         schoolName: result.school.name,
         logoUrl: result.school.logo,
         emailVerified: result.user.emailVerified,
+        approvalStatus: result.user.approvalStatus,
         hasSchool: !!result.user.schoolId,
         needsSchoolSetup: false,
         needsPhoneSetup: !result.user.phone,
       },
       classes: result.classes,
+      requiresApproval: result.school.approvalStatus !== "APPROVED",
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
+    });
+
+    void notifyPlatformAdmins({
+      title: "New school registered",
+      message: `${result.school.name} (${result.school.schoolCode}) just registered and is pending approval. Registered at ${new Date(result.school.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}.`,
+      type: "REGISTRATION",
+      telegramText: `🏫 New registration: ${result.school.name} (${result.school.schoolCode}) — pending approval.\n🕘 Registered ${new Date(result.school.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`,
+      telegramButtons: [
+        [
+          {
+            text: "✅ Approve",
+            callbackData: `approve:${result.school.schoolCode}`,
+          },
+          {
+            text: "❌ Reject",
+            callbackData: `reject:${result.school.schoolCode}`,
+          },
+        ],
+      ],
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "School Registration");

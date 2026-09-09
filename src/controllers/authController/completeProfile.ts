@@ -5,6 +5,7 @@ import { verifyRegistrationToken, generateAccessToken, generateRefreshToken } fr
 import { hashPassword, validatePassword } from "../../utils/password";
 import { validatePhoneNumber } from "../../utils/validation";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { stripLeadingTitle } from "../../utils/personName";
 import crypto from "crypto";
 
 export const completeProfile = async (req: AuthRequest, res: Response) => {
@@ -61,7 +62,7 @@ export const completeProfile = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.create({
       data: {
-        name: name.trim(),
+        name: stripLeadingTitle(name),
         email,
         phone,
         passwordHash,

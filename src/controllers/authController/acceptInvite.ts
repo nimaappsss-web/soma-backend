@@ -9,6 +9,7 @@ import { sendEmailOtp } from "../../utils/email";
 import { getFrontendUrl } from "../../utils/frontendUrl";
 import { generateOTP, OTP_TTL_MS } from "../../utils/tokens";
 import { notifyMany } from "../../utils/notifications";
+import { stripLeadingTitle } from "../../utils/personName";
 
 export const acceptInvite = async (req: AuthRequest, res: Response) => {
   try {
@@ -95,7 +96,7 @@ export const acceptInvite = async (req: AuthRequest, res: Response) => {
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          name,
+          name: stripLeadingTitle(name),
           email,
           phone: phone || null,
           role: inviteToken.role,

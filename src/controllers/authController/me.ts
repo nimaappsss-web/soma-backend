@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
+import { getSupportEmail } from "../../utils/platformNotify";
 
 export const me = async (req: AuthRequest, res: Response) => {
   try {
@@ -27,7 +28,7 @@ export const me = async (req: AuthRequest, res: Response) => {
         passwordHash: true,
         emailVerified: true,
         schoolId: true,
-        school: { select: { id: true, name: true, logo: true, state: true, lga: true, schoolType: true, arms: true } },
+        school: { select: { id: true, name: true, logo: true, state: true, lga: true, schoolType: true, arms: true, active: true, approvalStatus: true, rejectionReason: true, schoolCode: true, createdAt: true } },
       },
     });
 
@@ -50,6 +51,8 @@ export const me = async (req: AuthRequest, res: Response) => {
       orderBy: { lastActivityAt: "desc" },
     });
 
+    const supportEmail = await getSupportEmail();
+
     res.json({
       id: user.id,
       name: user.name,
@@ -63,12 +66,17 @@ export const me = async (req: AuthRequest, res: Response) => {
       role: user.role,
       active: user.active,
       approvalStatus: user.approvalStatus,
+      schoolApprovalStatus: user.school?.approvalStatus ?? null,
+      schoolRejectionReason: user.school?.rejectionReason ?? null,
+      schoolCode: user.school?.schoolCode ?? null,
+      schoolRegisteredAt: user.school?.createdAt?.toISOString() ?? null,
       needsRegistration: !user.passwordHash,
       needsSchoolSetup: user.role === "PRINCIPAL" && !user.schoolId,
       needsPhoneSetup: !user.phone,
       emailVerified: user.emailVerified,
       schoolId: user.schoolId,
       school: user.school ? { ...user.school, schoolType: JSON.parse(user.school.schoolType), arms: JSON.parse(user.school.arms) } : null,
+      supportEmail,
       sessions,
     });
   } catch (error) {

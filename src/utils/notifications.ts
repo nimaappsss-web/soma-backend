@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { broadcastToUser } from "./sse";
 import { Prisma } from "../generated/prisma/client";
+import { sendPushToUsers } from "./webPush";
 
 export type NotificationType =
   | "ANNOUNCEMENT"
@@ -9,7 +10,9 @@ export type NotificationType =
   | "ATTENDANCE"
   | "INVITE"
   | "EXAM"
-  | "FEE";
+  | "FEE"
+  | "APPROVAL"
+  | "SUPPORT";
 
 export interface NotifyPayload {
   title: string;
@@ -37,6 +40,12 @@ export const notifyUser = async (
       },
     });
     broadcastToUser(userId, "notification", notification);
+    void sendPushToUsers([userId], {
+      title: payload.title,
+      body: payload.message,
+      url: payload.route,
+      data: payload.data ?? null,
+    });
     return notification;
   } catch (error) {
     console.error("[notifyUser] Failed to create notification:", error);
@@ -68,6 +77,13 @@ export const notifyMany = async (
     for (const userId of unique) {
       broadcastToUser(userId, "notification", payload);
     }
+
+    void sendPushToUsers(unique, {
+      title: payload.title,
+      body: payload.message,
+      url: payload.route,
+      data: payload.data ?? null,
+    });
 
     return result;
   } catch (error) {

@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { welcomeHtml, teacherInviteHtml, emailOtpHtml, parentInviteHtml, passwordResetHtml } from "./emailTemplates";
+import { welcomeHtml, teacherInviteHtml, emailOtpHtml, parentInviteHtml, passwordResetHtml, approvalHtml, rejectionHtml, supportInquiryHtml } from "./emailTemplates";
 import { envGet } from "./renderSecrets";
 
 const FROM_EMAIL = envGet("FROM_EMAIL") || "noreply@checksoma.com";
@@ -125,5 +125,61 @@ export const sendPasswordResetEmail = async (
     to,
     "Reset Your Password — Soma",
     passwordResetHtml(name, resetUrl, frontend),
+  );
+};
+
+// Low-level sender for platform notifications (inquiry emails, admin alerts).
+// Skips silently when email is disabled or not configured.
+export const sendAppEmail = async (
+  to: string,
+  subject: string,
+  html: string,
+): Promise<{ ok: boolean; error?: string }> => {
+  if (process.env.DISABLE_EMAILS === "true") return { ok: true };
+  try {
+    await sendViaResend(to, subject, html);
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Unknown email error" };
+  }
+};
+
+export const sendSchoolApprovalEmail = async (
+  to: string,
+  schoolName: string,
+  frontendUrl?: string,
+) => {
+  if (process.env.DISABLE_EMAILS === "true") return;
+  await sendViaResend(
+    to,
+    `${schoolName} has been approved — Nima`,
+    approvalHtml(schoolName, frontendUrl),
+  );
+};
+
+export const sendSchoolRejectionEmail = async (
+  to: string,
+  schoolName: string,
+  reason?: string | null,
+) => {
+  if (process.env.DISABLE_EMAILS === "true") return;
+  await sendViaResend(
+    to,
+    `Update on ${schoolName} — Nima`,
+    rejectionHtml(schoolName, reason),
+  );
+};
+
+export const sendSupportInquiryEmail = async (
+  to: string,
+  schoolName: string,
+  authorName: string,
+  message: string,
+  supportEmail?: string,
+) => {
+  await sendViaResend(
+    to,
+    `We received your message — Nima`,
+    supportInquiryHtml(schoolName, authorName, message, supportEmail),
   );
 };

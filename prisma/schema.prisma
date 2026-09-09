@@ -30,6 +30,9 @@ model School {
   paystackSurchargePercent Float @default(0)
   paystackSurchargeFlat     Float @default(0)
   active            Boolean  @default(true)
+  approvalStatus    String   @default("APPROVED") // APPROVED, PENDING, REJECTED
+  rejectionReason   String?
+  supportTgChatId   String?  // Linked private Telegram chat that receives Soma-team replies
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -60,6 +63,8 @@ model School {
   examSheetBroadcasts   ExamSheetBroadcast[]
   examResultDeliveries  ExamResultDelivery[]
   principal          User?     @relation("SchoolPrincipal", fields: [principalId], references: [id], onDelete: SetNull)
+  supportMessages    SchoolSupportMessage[]
+  pushSubscriptions  PushSubscription[]
 
   @@index([principalId])
 }
@@ -99,6 +104,8 @@ model User {
   examBroadcastReviews ExamBroadcastRequest[] @relation("ExamBroadcastReviewedBy")
   examSheetBroadcasts ExamSheetBroadcast[] @relation("ExamSheetBroadcastTeacher")
   examSheetReviews ExamSheetBroadcast[] @relation("ExamSheetBroadcastReviewedBy")
+  supportMessages  SchoolSupportMessage[]
+  pushSubscriptions PushSubscription[]
 
   @@index([schoolId])
   @@index([role])
@@ -894,4 +901,64 @@ model SchoolReportSettings {
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([schoolId])
+}
+
+// ============= PLATFORM (SUPER ADMIN) =============
+
+model PlatformSetting {
+  key       String   @id
+  value     String   @default("{}")
+  updatedAt DateTime @updatedAt
+}
+
+// Two-way support thread between an (usually pre-approved) school and
+// platform admins. Reply = new row with replyToId pointing at the message
+// being replied to.
+model SchoolSupportMessage {
+  id        String   @id @default(cuid())
+  schoolId  String
+  userId    String
+  message   String
+  replyToId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school  School                @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  user    User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyTo SchoolSupportMessage? @relation("SupportReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies SchoolSupportMessage[] @relation("SupportReply")
+
+  @@index([schoolId])
+  @@index([replyToId])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  schoolId  String?
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school School? @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([schoolId])
+}
+
+// In-app notification feed for platform admins (super-admin bell).
+model PlatformNotification {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  type      String   @default("PLATFORM") // PLATFORM, REGISTRATION, SUPPORT, APPROVAL
+  data      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([read, createdAt])
 }

@@ -60,6 +60,9 @@ export const requireRole = (...roles: string[]) => {
 export const requireAdmin = () =>
   requireRole("PRINCIPAL", "SCHOOL_ADMIN");
 
+export const requireSuperAdmin = () =>
+  requireRole("SUPER_ADMIN");
+
 export const requireFinance = () =>
   requireRole("PRINCIPAL", "SCHOOL_ADMIN", "BURSAR");
 

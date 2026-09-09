@@ -17,10 +17,21 @@ export const refresh = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
+      include: { school: { select: { active: true, approvalStatus: true, rejectionReason: true } } },
     });
 
     if (!user || !user.active) {
       return res.status(403).json({ error: "User not found or inactive" });
+    }
+
+    if (user.school?.approvalStatus === "REJECTED") {
+      return res.status(403).json({
+        error: user.school.rejectionReason
+          ? `Your school was not approved. Reason: ${user.school.rejectionReason}`
+          : "Your school was not approved. Please reach out to support.",
+        code: "SCHOOL_REJECTED",
+        reason: user.school.rejectionReason ?? null,
+      });
     }
 
     const session = await prisma.session.findFirst({
