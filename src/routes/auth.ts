@@ -27,6 +27,8 @@ import {
   changePassword,
   setPassword,
   generateInviteLink,
+  listDevices,
+  deleteDevice,
 } from "../controllers/authController";
 import { authenticateToken, requireAdmin } from "../middleware/auth";
 import { gateApproval } from "../middleware/approval";
@@ -314,6 +316,8 @@ router.post("/logout", logout);
  */
 router.get("/me", authenticateToken, me);
 router.patch("/me", authenticateToken, updateProfile);
+router.get("/devices", authenticateToken, listDevices);
+router.delete("/devices/:id", authenticateToken, deleteDevice);
 
 router.get("/data-version", authenticateToken, (req, res) => {
   const userId = (req as { user?: { userId?: string } }).user?.userId;

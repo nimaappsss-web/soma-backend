@@ -17,3 +17,4 @@ export { listSchoolMessages } from "./listSchoolMessages";
 export { replySchoolMessage } from "./replySchoolMessage";
 export { listNotifications } from "./listNotifications";
 export { markNotificationsRead } from "./listNotifications";
+export { listUserDevices } from "./listUserDevices";

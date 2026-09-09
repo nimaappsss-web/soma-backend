@@ -25,3 +25,5 @@ export { googleAuth } from "./googleAuth";
 export { changePassword } from "./changePassword";
 export { setPassword } from "./setPassword";
 export { generateInviteLink } from "./generateInviteLink";
+export { listDevices } from "./listDevices";
+export { deleteDevice } from "./deleteDevice";

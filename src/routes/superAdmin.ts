@@ -20,6 +20,7 @@ import {
   replySchoolMessage,
   listNotifications,
   markNotificationsRead,
+  listUserDevices,
 } from "../controllers/superAdminController";
 
 const router = Router();
@@ -39,6 +40,7 @@ router.post("/schools/:id/messages", replySchoolMessage);
 router.get("/users", listUsers);
 router.get("/users/:id", getUserDetail);
 router.patch("/users/:id", updateUser);
+router.get("/users/:id/devices", listUserDevices);
 
 router.get("/analytics/overview", getOverviewAnalytics);
 router.get("/analytics/trends", getTrendAnalytics);
