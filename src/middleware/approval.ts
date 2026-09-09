@@ -5,6 +5,11 @@ import { getSupportEmail } from "../utils/platformNotify";
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
+// Only the dashboard stats endpoint stays reachable while a school is
+// deactivated — everything else (writes and reads alike) is blocked with
+// SCHOOL_DEACTIVATED. The app shows a full-screen lock in that state.
+const DEACTIVATED_READ_ALLOW = ["/api/dashboard"];
+
 // Approval turnstile for school-scoped APIs. Run AFTER authenticateToken.
 //  - APPROVED / no school   -> pass
 //  - PENDING                -> reads allowed (read-only preview), writes 403
@@ -31,7 +36,29 @@ export const gateApproval = async (
     });
 
     const school = user?.school;
-    if (!school || school.approvalStatus === "APPROVED") {
+    if (!school) {
+      return next();
+    }
+
+    // DEACTIVATED (approved but inactive): allow only the read whitelist so the
+    // dashboard/notice still render; block every write and every other list.
+    if (!school.active) {
+      const url = req.originalUrl ?? "";
+      const isRead = READ_METHODS.has(req.method.toUpperCase());
+      const isAllowed = isRead && DEACTIVATED_READ_ALLOW.some((p) => url.startsWith(p));
+      if (!isAllowed) {
+        const supportEmail = await getSupportEmail();
+        return res.status(403).json({
+          error:
+            "Your school account has been deactivated. Please renew your subscription to continue using Soma.",
+          code: "SCHOOL_DEACTIVATED",
+          supportEmail,
+        });
+      }
+      return next();
+    }
+
+    if (school.approvalStatus === "APPROVED") {
       return next();
     }
 

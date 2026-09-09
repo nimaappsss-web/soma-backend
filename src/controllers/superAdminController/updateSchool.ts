@@ -3,10 +3,12 @@ import { AuthRequest } from "../../types";
 import { prisma } from "../../utils/prisma";
 import { createErrorResponse } from "../../utils/errorHandler";
 
+const DEACTIVATION_REASONS = new Set(["NOT_PAID", "VIOLATED_REGULATION", "CUSTOM"]);
+
 export const updateSchool = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, address, state, lga, schoolType, arms, logo, active, schoolCode } = req.body;
+    const { name, address, state, lga, schoolType, arms, logo, active, schoolCode, deactivationReason, deactivationNote } = req.body;
 
     const school = await prisma.school.findUnique({
       where: { id },
@@ -14,6 +16,10 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
     });
     if (!school) {
       return res.status(404).json({ error: "School not found" });
+    }
+
+    if (deactivationReason !== undefined && !DEACTIVATION_REASONS.has(deactivationReason)) {
+      return res.status(400).json({ error: "Invalid deactivation reason" });
     }
 
     const updated = await prisma.school.update({
@@ -25,11 +31,25 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
         ...(lga !== undefined ? { lga } : {}),
         ...(schoolCode !== undefined ? { schoolCode: String(schoolCode).toUpperCase() } : {}),
         ...(logo !== undefined ? { logo: logo || null } : {}),
-        ...(active !== undefined ? { active: !!active } : {}),
         ...(schoolType !== undefined
           ? { schoolType: JSON.stringify(schoolType) }
           : {}),
         ...(arms !== undefined ? { arms: JSON.stringify(arms || []) } : {}),
+        // Deactivating stores the reason; activating clears it.
+        ...(active !== undefined
+          ? active
+            ? { active: true, deactivationReason: null, deactivationNote: null }
+            : {
+                active: false,
+                deactivationReason: deactivationReason ?? "CUSTOM",
+                deactivationNote:
+                  deactivationReason === "CUSTOM"
+                    ? deactivationNote?.trim() || null
+                    : null,
+              }
+          : deactivationReason !== undefined
+            ? { deactivationReason, deactivationNote: deactivationNote?.trim() || null }
+            : {}),
       },
       select: {
         id: true,
@@ -42,6 +62,9 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
         logo: true,
         arms: true,
         active: true,
+        approvalStatus: true,
+        deactivationReason: true,
+        deactivationNote: true,
         principalId: true,
         updatedAt: true,
       },

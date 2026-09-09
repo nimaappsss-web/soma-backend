@@ -28,7 +28,7 @@ export const me = async (req: AuthRequest, res: Response) => {
         passwordHash: true,
         emailVerified: true,
         schoolId: true,
-        school: { select: { id: true, name: true, logo: true, state: true, lga: true, schoolType: true, arms: true, active: true, approvalStatus: true, rejectionReason: true, schoolCode: true, createdAt: true } },
+        school: { select: { id: true, name: true, logo: true, state: true, lga: true, schoolType: true, arms: true, active: true, approvalStatus: true, rejectionReason: true, deactivationReason: true, deactivationNote: true, schoolCode: true, createdAt: true } },
       },
     });
 
@@ -68,6 +68,9 @@ export const me = async (req: AuthRequest, res: Response) => {
       approvalStatus: user.approvalStatus,
       schoolApprovalStatus: user.school?.approvalStatus ?? null,
       schoolRejectionReason: user.school?.rejectionReason ?? null,
+      schoolActive: user.school?.active ?? null,
+      deactivationReason: user.school?.deactivationReason ?? null,
+      deactivationNote: user.school?.deactivationNote ?? null,
       schoolCode: user.school?.schoolCode ?? null,
       schoolRegisteredAt: user.school?.createdAt?.toISOString() ?? null,
       needsRegistration: !user.passwordHash,

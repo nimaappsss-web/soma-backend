@@ -32,6 +32,8 @@ model School {
   active            Boolean  @default(true)
   approvalStatus    String   @default("APPROVED") // APPROVED, PENDING, REJECTED
   rejectionReason   String?
+  deactivationReason String? // NOT_PAID, VIOLATED_REGULATION, CUSTOM
+  deactivationNote   String? // shown to the school's users when deactivated
   supportTgChatId   String?  // Linked private Telegram chat that receives Soma-team replies
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
