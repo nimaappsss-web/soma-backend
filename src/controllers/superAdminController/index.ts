@@ -6,6 +6,7 @@ export { deleteSchool } from "./deleteSchool";
 export { listUsers } from "./listUsers";
 export { getUserDetail } from "./getUserDetail";
 export { updateUser } from "./updateUser";
+export { resetUserPassword } from "./resetUserPassword";
 export { getOverviewAnalytics } from "./getOverviewAnalytics";
 export { getTrendAnalytics } from "./getTrendAnalytics";
 export { getSchoolStats } from "./getSchoolStats";

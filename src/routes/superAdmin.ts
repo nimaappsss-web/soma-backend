@@ -9,6 +9,7 @@ import {
   listUsers,
   getUserDetail,
   updateUser,
+  resetUserPassword,
   getOverviewAnalytics,
   getTrendAnalytics,
   getSchoolStats,
@@ -40,6 +41,7 @@ router.post("/schools/:id/messages", replySchoolMessage);
 router.get("/users", listUsers);
 router.get("/users/:id", getUserDetail);
 router.patch("/users/:id", updateUser);
+router.post("/users/:id/reset-password", resetUserPassword);
 router.get("/users/:id/devices", listUserDevices);
 
 router.get("/analytics/overview", getOverviewAnalytics);
