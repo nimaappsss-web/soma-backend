@@ -40,7 +40,7 @@ import { gateApproval } from "./middleware/approval";
 import { startSseHeartbeat } from "./utils/sse";
 import { isCloudApiConfigured } from "./utils/whatsappCloud";
 import { broadcastDataChanged } from "./middleware/broadcastDataChanged";
-import { startSomaBot } from "./bot/somaBot";
+import { getTelegramBotHealth, startSomaBot } from "./bot/somaBot";
 
 import express, { Express, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -61,6 +61,15 @@ app.use(broadcastDataChanged);
 
 app.get("/", (req: Request, res: Response) => {
   res.json({ message: "Welcome to nima-backend" });
+});
+
+app.get("/health", (req: Request, res: Response) => {
+  res.json({
+    status: "ok",
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+    telegramBot: getTelegramBotHealth(),
+  });
 });
 
 app.use("/api/auth", authRoutes);

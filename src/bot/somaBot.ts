@@ -44,6 +44,36 @@ interface TelegramBotConfig {
 
 const LAST_OFFSET_KEY = "telegramLastOffset";
 
+export interface TelegramBotHealth {
+  configured: boolean;
+  status: "not-configured" | "starting" | "polling" | "error";
+  tokenConfigured: boolean;
+  chatIdConfigured: boolean;
+  offset: number | null;
+  offsetSavedAt: string | null;
+  firstPollAt: string | null;
+  lastPollAt: string | null;
+  lastError: string | null;
+  lastErrorAt: string | null;
+}
+
+const botHealth: TelegramBotHealth = {
+  configured: false,
+  status: "not-configured",
+  tokenConfigured: false,
+  chatIdConfigured: false,
+  offset: null,
+  offsetSavedAt: null,
+  firstPollAt: null,
+  lastPollAt: null,
+  lastError: null,
+  lastErrorAt: null,
+};
+
+export const getTelegramBotHealth = (): TelegramBotHealth => ({
+  ...botHealth,
+});
+
 let running = false;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -112,7 +142,10 @@ const loadOffset = async (): Promise<number> => {
     if (row) {
       const parsed = JSON.parse(row.value);
       const value = typeof parsed === "number" ? parsed : Number(parsed);
-      if (Number.isFinite(value) && value >= 0) return value;
+      if (Number.isFinite(value) && value >= 0) {
+        botHealth.offsetSavedAt = row.updatedAt.toISOString();
+        return value;
+      }
     }
   } catch {
     /* ignore */
@@ -127,6 +160,8 @@ const saveOffset = async (offset: number): Promise<void> => {
       create: { key: LAST_OFFSET_KEY, value: JSON.stringify(offset) },
       update: { value: JSON.stringify(offset) },
     });
+    botHealth.offset = offset;
+    botHealth.offsetSavedAt = new Date().toISOString();
   } catch (error) {
     console.error("[telegram-bot] failed to save offset:", error);
   }
@@ -532,15 +567,50 @@ export const handleUpdate = async (
 export const startSomaBot = async (): Promise<void> => {
   if (running) return;
   const { token, chatId } = await getTelegramConfig();
+  botHealth.tokenConfigured = !!token;
+  botHealth.chatIdConfigured = !!chatId;
   if (!token || !chatId) {
-    console.warn("[telegram-bot] Not started — no bot token / chat id configured");
+    botHealth.status = "not-configured";
+    console.error(
+      `[telegram-bot] Not started — missing Telegram configuration (token: ${token ? "set" : "MISSING"}, chatId: ${chatId ? "set" : "MISSING"}). Set TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID env vars or the telegramBotToken / telegramChatId platform settings to re-enable approvals from Telegram.`,
+    );
     return;
   }
   running = true;
+  botHealth.configured = true;
+  botHealth.status = "starting";
   const config: TelegramBotConfig = { token, chatId: String(chatId) };
 
-  let offset = (await loadOffset()) + 1;
+  try {
+    const me = await callApi(token, "getMe", {});
+    console.log(`[telegram-bot] authenticated as @${me.username}`);
+  } catch (error) {
+    botHealth.status = "error";
+    botHealth.lastError = `getMe failed: ${(error as Error).message}`;
+    botHealth.lastErrorAt = new Date().toISOString();
+    console.error(
+      "[telegram-bot] Telegram rejected the bot token — not polling:",
+      (error as Error).message,
+    );
+    return;
+  }
+
+  const lastOffset = await loadOffset();
+  let offset = lastOffset + 1;
+  botHealth.offset = lastOffset;
   console.log("[telegram-bot] polling started (offset", offset, ")");
+
+  if (botHealth.offsetSavedAt) {
+    const ageHours = (Date.now() - new Date(botHealth.offsetSavedAt).getTime()) / 3_600_000;
+    if (ageHours > 24) {
+      console.warn(
+        `[telegram-bot] last confirmed update was ${ageHours.toFixed(1)}h ago — Telegram drops unconfirmed updates after 24h, so anything sent while the app was sleeping (e.g. an Approve tap) is unrecoverable.`,
+      );
+    }
+  }
+
+  botHealth.status = "polling";
+  botHealth.firstPollAt = botHealth.firstPollAt ?? new Date().toISOString();
 
   for (;;) {
     try {
@@ -549,6 +619,11 @@ export const startSomaBot = async (): Promise<void> => {
         timeout: 25,
         allowed_updates: ["message", "callback_query"],
       });
+
+      botHealth.status = "polling";
+      botHealth.lastPollAt = new Date().toISOString();
+      botHealth.lastError = null;
+      botHealth.lastErrorAt = null;
 
       if (!updates || updates.length === 0) {
         await sleep(1500);
@@ -566,6 +641,9 @@ export const startSomaBot = async (): Promise<void> => {
         await saveOffset(offset);
       }
     } catch (error) {
+      botHealth.status = "error";
+      botHealth.lastError = (error as Error).message;
+      botHealth.lastErrorAt = new Date().toISOString();
       console.error("[telegram-bot] poll error:", (error as Error).message);
       await sleep(5000);
     }
