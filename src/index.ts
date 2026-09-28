@@ -37,6 +37,7 @@ import supportMessageRoutes from "./routes/supportMessages";
 import pushRoutes from "./routes/push";
 import { authenticateToken } from "./middleware/auth";
 import { gateApproval } from "./middleware/approval";
+import { notificationStream } from "./controllers/notificationController";
 import { startSseHeartbeat } from "./utils/sse";
 import { isCloudApiConfigured } from "./utils/whatsappCloud";
 import { broadcastDataChanged } from "./middleware/broadcastDataChanged";
@@ -106,6 +107,7 @@ app.use("/api/report-settings", gateSchoolApi, reportSettingsRoutes);
 app.use("/api/celebrations", gateSchoolApi, celebrationRoutes);
 app.use("/api/analytics", gateSchoolApi, analyticsRoutes);
 app.use("/api/subject-assignments", gateSchoolApi, subjectAssignmentsRoutes);
+app.get("/api/notifications/stream", notificationStream);
 app.use("/api/notifications", gateSchoolApi, notificationRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 
@@ -128,7 +130,12 @@ app.listen(port, () => {
 
   startSseHeartbeat();
 
-  void startSomaBot();
+  // Only one process may poll the Telegram bot at a time (Telegram rejects a
+  // second getUpdates with 409). Production (Render) owns the poller, so
+  // disable it locally / on preview deploys via DISABLE_TELEGRAM_BOT=true.
+  if (process.env.DISABLE_TELEGRAM_BOT !== "true") {
+    void startSomaBot();
+  }
 
   if (!process.env.RESEND_API_KEY) {
     console.error("WARNING: RESEND_API_KEY not set — email sending will fail");

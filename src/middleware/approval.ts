@@ -86,12 +86,13 @@ export const gateApproval = async (
     next();
   } catch (error) {
     // Fail closed: a DB hiccup must never silently unlock writes for an
-    // unapproved school. Block the write and log so it surfaces loudly.
+    // unapproved school. Block the write and report the real cause instead of
+    // pretending the school is still pending.
     console.error("[gateApproval] lookup failed, blocking write:", error);
-    return res.status(403).json({
+    return res.status(500).json({
       error:
-        "Your account is under review. You can preview the app, but creating things unlocks once your school is approved.",
-      code: "SCHOOL_PENDING",
+        "Could not verify your account right now because the database is unreachable. Please try again shortly.",
+      code: "SCHOOL_LOOKUP_FAILED",
     });
   }
 };

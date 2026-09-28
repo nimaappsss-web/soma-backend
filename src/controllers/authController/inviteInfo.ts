@@ -31,12 +31,59 @@ export const inviteInfo = async (req: Request, res: Response) => {
       select: { name: true },
     });
 
+    // The invite flow has no authenticated user yet, so the school-scoped
+    // list endpoints (which sit behind authenticateToken) can't be used. Serve
+    // the subjects/classes/assignments the registration form needs here, keyed
+    // off the invite token itself.
+    const [subjects, classes, assignments] = await Promise.all([
+      prisma.subject.findMany({
+        where: { schoolId: inviteToken.schoolId },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, code: true },
+      }),
+      prisma.class.findMany({
+        where: { schoolId: inviteToken.schoolId },
+        orderBy: [{ level: "asc" }, { arm: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          arm: true,
+          schoolType: true,
+          formTeachers: { select: { id: true, name: true }, take: 1 },
+        },
+      }),
+      prisma.class.findMany({
+        where: { schoolId: inviteToken.schoolId },
+        orderBy: [{ level: "asc" }, { arm: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          classSubjects: { select: { subjectId: true } },
+        },
+      }),
+    ]);
+
     res.json({
       email: inviteToken.invitedEmail,
       phone: inviteToken.invitedPhone,
       role: inviteToken.role,
       schoolId: inviteToken.schoolId,
       schoolName: school?.name || null,
+      subjects: subjects.map((s) => ({ id: s.id, name: s.name, code: s.code })),
+      classes: classes.map((c) => ({
+        id: c.id,
+        name: c.name,
+        level: c.level,
+        arm: c.arm,
+        schoolType: c.schoolType,
+        formTeacher: c.formTeachers[0] || null,
+      })),
+      subjectAssignments: assignments.map((c) => ({
+        classId: c.id,
+        className: c.name,
+        subjectIds: c.classSubjects.map((cs) => cs.subjectId),
+      })),
     });
   } catch (error) {
     const errorResponse = createErrorResponse(error, "Invite Info");
