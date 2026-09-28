@@ -1,6 +1,7 @@
 import { PrismaClient } from "../generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
+import { neonConfig } from "@neondatabase/serverless";
+import { PrismaNeon } from "@prisma/adapter-neon";
+import ws from "ws";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -9,35 +10,18 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
+if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
 
-// pg 8.11+ treats sslmode=require as verify-full (strict cert + hostname
-// verification). Against Neon's pooler this intermittently drops the socket
-// mid-TLS-handshake under concurrency. Restore the classic "require" behavior
-// (encrypt, no cert pinning) which is what Neon pooler connections expect.
-const baseConnect = connectionString.includes("?")
-  ? connectionString + "&uselibpqcompat=true&sslmode=require"
-  : connectionString + "?uselibpqcompat=true&sslmode=require";
+// Connect over Neon's serverless driver (WebSocket, port 443) instead of the
+// raw `pg` TCP connection (port 5432). Port 5432 is blocked by many office/ISP
+// networks (which is also why the frontend reaches Neon over HTTPS), so using
+// the WebSocket transport keeps the backend reachable from anywhere, without a
+// VPN, while still supporting interactive transactions.
+neonConfig.webSocketConstructor = ws;
 
-const pool = new Pool({
-  connectionString: baseConnect,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 15000,
-  allowExitOnIdle: false,
-  keepAlive: true,
-});
-
-// Remove broken clients from the pool when Neon/PgBouncer drops an idle socket
-// instead of letting a single dirty client poison every subsequent query.
-pool.on("error", (err) => {
-  console.error("[db] Unexpected error on idle DB client:", err.message);
-});
-const adapter = new PrismaPg(pool);
+const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
 
 export const prisma = global.prisma || new PrismaClient({ adapter });
 
